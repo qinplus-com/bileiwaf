@@ -1,0 +1,9 @@
+# WAF 文件上传防护规则
+# 格式: UPLOAD,正则,严重度,动作,描述
+UPLOAD,filename\s*=\s*"[^"\r\n]*\.php,5,block,PHP script upload
+UPLOAD,filename\s*=\s*"[^"\r\n]*\.jsp,5,block,JSP webshell upload
+UPLOAD,filename\s*=\s*"[^"\r\n]*\.asp,5,block,ASP webshell upload
+UPLOAD,filename\s*=\s*"[^"\r\n]*\.aspx,5,block,ASPX webshell upload
+UPLOAD,\.exe",3,log,Executable upload
+UPLOAD,filename\s*=\s*"[^"\r\n]*\.sh,4,block,Shell script upload
+UPLOAD,<\?php,5,block,PHP code injection

@@ -1,0 +1,152 @@
+# ============================================================
+# 壁垒WAF (BileiWAF) Makefile（由 configure 从 Makefile.in 生成）
+#
+#   make            构建数据平面 + 管理平面
+#   make waf        仅数据平面
+#   make admin      仅管理平面
+#   make install    安装到 --prefix（默认 /opt/bileiwaf，支持 DESTDIR）
+#   make uninstall  卸载（保留现场 config/rules/logs）
+#   make dist       生成源码发行包 dist/bileiwaf-<ver>.tar.gz
+#   make clean      清理构建产物
+#   make distclean  清理并移除 configure 生成文件
+# ============================================================
+
+PREFIX       = @PREFIX@
+CC           = @CC@
+VERSION      = @VERSION@
+
+BASE_CFLAGS  = @BASE_CFLAGS@
+PTHREAD_CF   = @PTHREAD_CFLAGS@
+SSL_CF       = @SSL_CFLAGS@
+CURL_CF      = @CURL_CFLAGS@
+JSONC_CF     = @JSONC_CFLAGS@
+# libmaxminddb（可选）：检测到则含 -DHAVE_MAXMINDDB，启用管理平面 IP 地理定位
+GEOIP_CF     = @GEOIP_CFLAGS@
+
+PTHREAD_LIB  = @PTHREAD_LIBS@
+RDYNAMIC     = @RDYNAMIC@
+SSL_LIB      = @SSL_LIBS@
+CURL_LIB     = @CURL_LIBS@
+JSONC_LIB    = @JSONC_LIBS@
+GEOIP_LIB    = @GEOIP_LIBS@
+MATH_LIB     = @MATH_LIBS@
+
+# -include waf_config.h：configure 的检测结果（WAF_PREFIX / HAVE_*）对所有编译单元可见
+CFLAGS  = $(BASE_CFLAGS) -g -I./include $(PTHREAD_CF) $(SSL_CF) $(CURL_CF) $(JSONC_CF) \
+          -DUSE_OPENSSL -include waf_config.h
+LDFLAGS = $(PTHREAD_LIB) $(RDYNAMIC) $(SSL_LIB) $(CURL_LIB) $(JSONC_LIB) $(MATH_LIB)
+
+SRC_DIR   = src
+INC_DIR   = include
+ADMIN_DIR = admin
+# 管理界面目录名（--admin-dir，默认 adminui；安装为 $(INSTDIR)/$(ADMIN_UI_DIR)/，
+# 与 web/ 平级、独立于 web 之外；须与 config/admin.conf 的 admin_dir 键一致）
+ADMIN_UI_DIR = @ADMIN_UI_DIR@
+BUILD_DIR = build
+BIN_DIR   = bin
+VERSION_H = include/version.h
+
+SOURCES = $(wildcard $(SRC_DIR)/*.c)
+OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
+
+WAF_TARGET   = $(BIN_DIR)/bileiwaf
+ADMIN_TARGET = $(BIN_DIR)/bileiwaf-admin
+
+# 安装路径
+DESTDIR ?=
+INSTDIR        = $(DESTDIR)$(PREFIX)
+SYSTEMD_UNITDIR = $(DESTDIR)/usr/lib/systemd/system
+
+all: dirs version $(WAF_TARGET) $(ADMIN_TARGET)
+
+waf: dirs version $(WAF_TARGET)
+admin: dirs $(ADMIN_TARGET)
+
+dirs:
+	@mkdir -p $(BUILD_DIR) $(BIN_DIR) logs
+
+version: $(VERSION_H)
+
+$(VERSION_H): .version
+	@printf '#ifndef VERSION_H\n#define VERSION_H\n\n#define WAF_VERSION "%s"\n#define WAF_BUILD_DATE "%s"\n\n#endif\n' \
+	    "$$(cat .version)" "$$(date +'%Y-%m-%d %H:%M:%S')" > $@
+
+# ---- 数据平面 ----
+$(WAF_TARGET): $(OBJECTS) $(VERSION_H)
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
+	@echo "==> 数据平面就绪: $@"
+
+# 头文件（含 configure 生成的 waf_config.h）任一变更触发全量重编，杜绝混合布局二进制
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(VERSION_H) $(wildcard $(INC_DIR)/*.h)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# ---- 管理平面（可选链接 libmaxminddb 做 IP 地理定位；未检测到则自动降级）----
+$(ADMIN_TARGET): $(ADMIN_DIR)/admin_server.c
+	$(CC) $(BASE_CFLAGS) $(GEOIP_CF) $(PTHREAD_CF) -o $@ $< $(GEOIP_LIB)
+	@echo "==> 管理平面就绪: $@"
+
+# ------------------------------------------------------------
+# 安装（DESTDIR 可用于打包阶段；现场 config/rules/models 不覆盖）
+# ------------------------------------------------------------
+install: all
+	@echo "==> 安装到 $(INSTDIR)"
+	@mkdir -p $(INSTDIR)/bin $(INSTDIR)/config/sites $(INSTDIR)/rules \
+	          $(INSTDIR)/models $(INSTDIR)/web $(INSTDIR)/certs \
+	          $(INSTDIR)/logs $(INSTDIR)/data
+	install -m 755 $(WAF_TARGET) $(ADMIN_TARGET) $(INSTDIR)/bin/
+	install -m 755 waf start.sh stop.sh $(INSTDIR)/
+	@# 全局/站点/管理后台配置：已存在则保留（升级不冲掉现场接入配置与账号）
+	@for f in etc/*.conf; do \
+	    n=$$(basename $$f); \
+	    if [ -e "$(INSTDIR)/config/$$n" ]; then \
+	        echo "    保留现有配置 config/$$n"; \
+	    else install -m 644 $$f "$(INSTDIR)/config/$$n"; fi; \
+	done
+	@for f in etc/sites/*.conf; do \
+	    n=$$(basename $$f); \
+	    if [ -e "$(INSTDIR)/config/sites/$$n" ]; then \
+	        echo "    保留现有配置 config/sites/$$n"; \
+	    else install -m 644 $$f "$(INSTDIR)/config/sites/$$n"; fi; \
+	done
+	@# 规则/模型：可能含现场热加载学习产物，只增不改
+	@cp -an rules/. "$(INSTDIR)/rules/" 2>/dev/null || true
+	@cp -an models/. "$(INSTDIR)/models/" 2>/dev/null || true
+	@# Web 静态资源随版本覆盖
+	@cp -a web/. "$(INSTDIR)/web/"
+	@# 管理界面目录（独立于 web/ 之外，目录名由 --admin-dir 决定）随版本覆盖
+	@mkdir -p "$(INSTDIR)/$(ADMIN_UI_DIR)"
+	@cp -a adminui/. "$(INSTDIR)/$(ADMIN_UI_DIR)/"
+	@# systemd 单元
+	@mkdir -p $(SYSTEMD_UNITDIR)
+	@# systemd 单元（占位符 @WAF_PREFIX@ 与 configure 的 @PREFIX@ 区分，避免被提前替换）
+	@sed 's|@WAF_PREFIX@|$(PREFIX)|g' packaging/bileiwaf.service.in \
+	    > $(SYSTEMD_UNITDIR)/bileiwaf.service
+	@echo ""
+	@echo "==> 安装完成："
+	@echo "    启动: $(PREFIX)/waf start                 # 默认 80/443，首次启动自动生成自签证书"
+	@echo "    状态: $(PREFIX)/waf status    停止: $(PREFIX)/waf stop    重启: $(PREFIX)/waf restart"
+	@echo "    自定义: $(PREFIX)/waf start -p 8080 -s 8444 -b 9000 -a 19000"
+	@echo "    管理后台: http://<ip>:$$(grep -E '^admin_port' $(INSTDIR)/config/waf.conf 2>/dev/null | grep -o '[0-9]*' | head -1)/admin"
+	@echo "    开机自启: systemctl daemon-reload && systemctl enable --now bileiwaf"
+
+uninstall:
+	@rm -f $(INSTDIR)/bin/bileiwaf $(INSTDIR)/bin/bileiwaf-admin
+	@rm -f $(INSTDIR)/waf $(INSTDIR)/start.sh $(INSTDIR)/stop.sh
+	@rm -rf $(INSTDIR)/web "$(INSTDIR)/$(ADMIN_UI_DIR)"
+	@rm -f $(SYSTEMD_UNITDIR)/bileiwaf.service
+	@echo "==> 已卸载程序文件；保留 $(INSTDIR)/{config,rules,models,logs,certs,data}（现场数据）"
+
+# ------------------------------------------------------------
+# 源码发行包
+# ------------------------------------------------------------
+dist:
+	@sh scripts/mkdist.sh "$(VERSION)"
+
+clean:
+	rm -rf $(BUILD_DIR) $(BIN_DIR)
+	rm -f $(VERSION_H)
+
+distclean: clean
+	rm -f Makefile include/waf_config.h config.log
+
+.PHONY: all waf admin dirs version install uninstall dist clean distclean

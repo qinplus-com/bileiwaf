@@ -1,0 +1,18 @@
+# WAF 文件白名单（URL 精确路径）
+# 每行一条，'#' 开头为注释；条目必须以 '/' 开头，大小写不敏感精确匹配（非前缀）。
+#
+# 用途：抑制「正常文件/页面路径本身含攻击关键词」导致的规则误报。
+# 例如技术文章页路径中含 shutdown / DROP DATABASE 等词，会被 URL 侧
+# 关键词规则（CMD / SQL）误判为攻击而拦截。
+#
+# 语义边界（安全设计，非绕过通道）：
+#   - 仅跳过针对「URL 路径本身」的关键词规则检测；
+#   - query、body、Cookie、Referer 等载荷来源仍照常全量检测，
+#     因此在白名单路径上挂 ?id=1' OR '1'='1 之类的真实载荷依然会被拦截。
+# 修改本文件后热加载生效：kill -HUP <bileiwaf 数据平面 PID> 或重启数据平面。
+
+# 技术文章：命令注入误报
+/html/shutdown.html
+
+# 技术文章：SQL 注入误报（路径含 DROP DATABASE 关键词）
+/html/ad_sql__DROP__DATABASE.html

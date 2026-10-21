@@ -1,0 +1,297 @@
+SQLI," UNION,5,block,Dquote union space
+SQLI," UNION SELECT,5,block,Dquote union select
+SQLI,' OR,5,block,Quote OR
+SQLI," OR,5,block,Dquote OR
+SQLI," AND,5,block,Dquote AND
+SQLI,'--,5,block,Quote comment
+SQLI,"--,5,block,Dquote comment
+SQLI,');--,5,block,Closed paren union comment
+SQLI,');UNION,5,block,Closed paren union
+SQLI,'); SELECT,5,block,Closed paren select
+SQLI,')UNION,5,block,Quote paren union
+SQLI,")UNION,5,block,Dquote paren union
+SQLI,%27+UNION,5,block,Encoded quote union plus
+SQLI,%27+OR,5,block,Encoded quote OR plus
+SQLI,%27+AND,5,block,Encoded quote AND plus
+SQLI,%27%20UNION,5,block,Encoded quote union space
+SQLI,%27%20OR,5,block,Encoded quote OR space
+SQLI,%22%20UNION,5,block,Encoded dquote union space
+SQLI,%22%20OR,5,block,Encoded dquote OR space
+SQLI,%22%20AND,5,block,Encoded dquote AND space
+SQLI,UNION+SELECT,5,block,Union select encoded plus
+SQLI,UNION/**/SELECT,5,block,Union select comment bypass
+SQLI,UNION/*+*/SELECT,5,block,Union select comment plus bypass
+SQLI,UNION%0D%0ASELECT,5,block,Union select carriage return
+SQLI,UNION%0ASELECT,5,block,Union select line feed
+SQLI,UNION%09SELECT,5,block,Union select tab
+SQLI,UNION%0BSELECT,5,block,Union select vertical tab
+SQLI,'%20union%20select,5,block,Encoded quote union select
+SQLI,"%20union%20select,5,block,Encoded dquote union select
+SQLI,'%2bunion%2bselect,5,block,Plus encoded quote union select
+SQLI,"%2bunion%2bselect,5,block,Plus encoded dquote union select
+SQLI,1%27%20UNION,5,block,Encoded single quote union
+SQLI,1%22%20UNION,5,block,Encoded double quote union
+SQLI,1%27%2bUNION,5,block,Plus encoded quote union
+SQLI,1%22%2bUNION,5,block,Plus encoded dquote union
+SQLI,1%27OR,5,block,Encoded quote OR
+SQLI,1%22OR,5,block,Encoded dquote OR
+SQLI,1%27AND,5,block,Encoded quote AND
+SQLI,1%22AND,5,block,Encoded dquote AND
+SQLI,[\'")]--,5,block,SQL comment
+SQLI,drop table,5,block,Drop table
+SQLI,DROP TABLE,5,block,Drop table uppercase
+SQLI,delete from,5,block,Delete from
+SQLI,DELETE FROM,5,block,Delete from uppercase
+SQLI,insert into,5,block,Insert into
+SQLI,INSERT INTO,5,block,Insert into uppercase
+SQLI,update set,5,block,Update set
+SQLI,UPDATE SET,5,block,Update set uppercase
+SQLI,select user\(,5,block,Select user function
+SQLI,SELECT user\(,5,block,Select user uppercase
+SQLI,select database\(,5,block,Select database function
+SQLI,SELECT database\(,5,block,Select database uppercase
+SQLI,select version\(,5,block,Select version function
+SQLI,SELECT version\(,5,block,Select version uppercase
+SQLI,@@version,5,block,MySQL version variable
+SQLI,@@user,5,block,MySQL user variable
+SQLI,@@database,5,block,MySQL database variable
+SQLI,load_file\s*\(,5,block,Load file function
+SQLI,LOAD_FILE\s*\(,5,block,Load file uppercase
+SQLI,into\s+outfile\s+["\'/],5,block,Into outfile
+SQLI,INTO\s+OUTFILE\s+["\'/],5,block,Into outfile uppercase
+SQLI,into dumpfile,5,block,Into dumpfile
+SQLI,INTO DUMPFILE,5,block,Into dumpfile uppercase
+SQLI,sleep\(\),5,block,Sleep function
+SQLI,SLEEP\(\),5,block,Sleep uppercase
+SQLI,benchmark\(,5,block,Benchmark function
+SQLI,BENCHMARK\(,5,block,Benchmark uppercase
+SQLI,pg_sleep\(,5,block,PostgreSQL sleep
+SQLI,PG_SLEEP\(,5,block,PostgreSQL sleep uppercase
+SQLI,waitfor delay,5,block,MSSQL waitfor
+SQLI,WAITFOR DELAY,5,block,MSSQL waitfor uppercase
+SQLI,extractvalue\(,5,block,Extractvalue injection
+SQLI,EXTRACTVALUE\(,5,block,Extractvalue uppercase
+SQLI,updatexml\(,5,block,Updatexml injection
+SQLI,UPDATEXML\(,5,block,Updatexml uppercase
+SQLI,char\(0x,5,block,Char hex function
+SQLI,CHAR\(0x,5,block,Char hex uppercase
+SQLI,unhex\(0x,5,block,Unhex function
+SQLI,UNHEX\(0x,5,block,Unhex uppercase
+SQLI,concat\(char\(,5,block,Concat char function
+SQLI,CONCAT\(CHAR\(,5,block,Concat char uppercase
+SQLI,group_concat\(char\(,5,block,Group concat char
+SQLI,GROUP_CONCAT\(CHAR\(,5,block,Group concat char uppercase
+SQLI,load_file%28%27,5,block,Encoded load file
+SQLI,into%2boutfile,5,block,Encoded into outfile
+SQLI,into%2bdumpfile,5,block,Encoded into dumpfile
+SQLI,sleep%285%29,5,block,Encoded sleep function
+SQLI,benchmark%281000000,5,block,Encoded benchmark
+SQLI,pg_sleep%285%29,5,block,Encoded PostgreSQL sleep
+SQLI,waitfor%2bdelay,5,block,Encoded MSSQL waitfor
+SQLI,extractvalue%281,5,block,Encoded extractvalue
+SQLI,updatexml%281,5,block,Encoded updatexml
+SQLI,char%280x,5,block,Encoded char hex
+SQLI,unhex%280x,5,block,Encoded unhex
+SQLI,concat%28char%28,5,block,Encoded concat char
+SQLI,group_concat%28char%28,5,block,Encoded group concat char
+SQLI,;+SELECT,5,block,Stacked select
+SQLI,;+INSERT,5,block,Stacked insert
+SQLI,;+UPDATE,5,block,Stacked update
+SQLI,;+DELETE,5,block,Stacked delete
+SQLI,;+DROP,5,block,Stacked drop
+SQLI,;+EXEC,5,block,Stacked exec
+SQLI,;+EXECUTE,5,block,Stacked execute
+SQLI,);SELECT,5,block,Closed paren select
+SQLI,');SELECT,5,block,Quote paren select
+SQLI,");SELECT,5,block,Dquote paren select
+SQLI,');INSERT,5,block,Quote paren insert
+SQLI,");INSERT,5,block,Dquote paren insert
+SQLI,');UPDATE,5,block,Quote paren update
+SQLI,");UPDATE,5,block,Dquote paren update
+SQLI,');DELETE,5,block,Quote paren delete
+SQLI,");DELETE,5,block,Dquote paren delete
+SQLI,');DROP,5,block,Quote paren drop
+SQLI,");DROP,5,block,Dquote paren drop
+SQLI,UNION ALL SELECT,5,block,Union all select
+SQLI,UNION DISTINCT SELECT,5,block,Union distinct select
+SQLI,UNION ALL SELECT NULL,5,block,Union all select null
+SQLI,UNION ALL SELECT 1,5,block,Union all select 1
+SQLI,UNION SELECT NULL,5,block,Union select null
+SQLI,UNION SELECT 1,5,block,Union select 1
+SQLI,UNION SELECT 1,2,5,block,Union select columns
+SQLI,UNION SELECT NULL,NULL,5,block,Union select null null
+SQLI,UNION ALL SELECT NULL,NULL,5,block,Union all select null null
+SQLI,UNION SELECT username,password,5,block,Union select credentials
+SQLI,UNION SELECT user,password,5,block,Union select user password
+SQLI,UNION SELECT login,password,5,block,Union select login password
+SQLI,FROM information_schema.tables,5,block,From information schema tables
+SQLI,FROM information_schema.columns,5,block,From information schema columns
+SQLI,FROM sys.all_tables,5,block,From Oracle all tables
+SQLI,FROM sys.dba_tables,5,block,From Oracle dba tables
+SQLI,FROM pg_catalog.pg_tables,5,block,From PostgreSQL tables
+SQLI,FROM sysobjects,5,block,From MSSQL sysobjects
+SQLI,FROM sys.tables,5,block,From MSSQL sys tables
+SQLI,UNION+SELECT+@@version,5,block,Union select version variable
+SQLI,UNION+SELECT+@@user,5,block,Union select user variable
+SQLI,UNION+SELECT+@@database,5,block,Union select database variable
+SQLI,UNION+SELECT+user%28%29,5,block,Union select user function
+SQLI,UNION+SELECT+database%28%29,5,block,Union select database function
+SQLI,UNION+SELECT+version%28%29,5,block,Union select version function
+SQLI,UNION+SELECT+current_user%28%29,5,block,Union select current user
+SQLI,UNION+SELECT+session_user%28%29,5,block,Union select session user
+SQLI,UNION+SELECT+system_user%28%29,5,block,Union select system user
+SQLI,CAST%28SELECT,5,block,Cast select encoded
+SQLI,CAST\(SELECT,5,block,Cast select
+SQLI,CONVERT%28SELECT,5,block,Convert select encoded
+SQLI,CONVERT\(SELECT,5,block,Convert select
+SQLI,SUBSTRING%28SELECT,5,block,Substring select encoded
+SQLI,SUBSTRING\(SELECT,5,block,Substring select
+SQLI,MID%28SELECT,5,block,Mid select encoded
+SQLI,MID\(SELECT,5,block,Mid select
+SQLI,LEFT%28SELECT,5,block,Left select encoded
+SQLI,LEFT\(SELECT,5,block,Left select
+SQLI,RIGHT%28SELECT,5,block,Right select encoded
+SQLI,RIGHT\(SELECT,5,block,Right select
+SQLI,FLOOR%28RAND,5,block,Floor rand injection
+SQLI,FLOOR\(RAND,5,block,Floor rand
+SQLI,UPDATEXML%28CONCAT,5,block,Updatexml concat injection
+SQLI,EXTRACTVALUE%28CONCAT,5,block,Extractvalue concat injection
+SQLI,BENCHMARK%28COUNT,5,block,Benchmark count injection
+SQLI,ORD%28MID,5,block,Ord mid injection
+SQLI,ASCII%28SUBSTRING,5,block,Ascii substring injection
+SQLI,SLEEP%28BENCHMARK,5,block,Sleep benchmark injection
+SQLI,WAITFOR%20DELAY,5,block,Waitfor delay encoded
+SQLI,WAITFOR+DELAY,5,block,Waitfor delay plus
+SQLI,EXEC%28,5,block,Exec encoded
+SQLI,EXECUTE%28,5,block,Execute encoded
+SQLI,SP_EXECUTESQL,5,block,SP executesql
+SQLI,OPENROWSET,5,block,Openrowset
+SQLI,OPENDATASOURCE,5,block,Opendatasource
+SQLI,OPENQUERY,5,block,Openquery
+SQLI,XP_CMDSHELL,5,block,XP cmdshell
+SQLI,INTO+OUTFILE,5,block,Into outfile plus
+SQLI,INTO%20DUMPFILE,5,block,Into dumpfile encoded
+SQLI,INTO+DUMPFILE,5,block,Into dumpfile plus
+SQLI,LOAD_FILE%28,5,block,Load file encoded
+SQLI,LOAD_FILE\(,5,block,Load file
+SQLI,DUAL,5,block,Oracle dual table
+SQLI,ALL_TABLES,5,block,Oracle all tables
+SQLI,DBA_TABLES,5,block,Oracle dba tables
+SQLI,PG_TABLES,5,block,PostgreSQL tables
+SQLI,SYS_TABLES,5,block,MSSQL sys tables
+SQLI,SYSCOLUMNS,5,block,MSSQL syscolumns
+SQLI,SYSINDEXES,5,block,MSSQL sysindexes
+SQLI,SYSOBJECTS,5,block,MSSQL sysobjects
+SQLI,WHERE%201%3D1,5,block,Where 1=1 encoded
+SQLI,WHERE+1%3D1,5,block,Where 1=1 plus
+SQLI,HAVING%201%3D1,5,block,Having 1=1 encoded
+SQLI,GROUP%20BY%201%3B,5,block,Group by injection
+SQLI,UNION%20ALL%20SELECT,5,block,Union all select encoded
+SQLI,UNION+ALL+SELECT,5,block,Union all select plus
+SQLI,UNION%20DISTINCT%20SELECT,5,block,Union distinct select encoded
+SQLI,UNION+DISTINCT+SELECT,5,block,Union distinct select plus
+SQLI,%2F%2A%2A%2FUNION,5,block,Comment union
+SQLI,%2F%2A%2A%2FSELECT,5,block,Comment select
+SQLI,%00UNION,5,block,Null byte union
+SQLI,%00SELECT,5,block,Null byte select
+SQLI,UNION%0CSELECT,5,block,Form feed union
+SQLI,UNION%00SELECT,5,block,Null byte union select
+SQLI,IF%281%3D1,5,block,IF condition injection
+SQLI,DECODE%28SUBSTR,5,block,Decode substr injection
+SQLI,ENCODE%28SUBSTR,5,block,Encode substr injection
+SQLI,FROM%20user,5,block,From user table
+SQLI,FROM%20admin,5,block,From admin table
+SQLI,FROM%20password,5,block,From password table
+SQLI,%27%20LIMIT%201,5,block,Limit 1 injection
+SQLI,%22%20LIMIT%201,5,block,Dquote limit 1
+SQLI,%27%20OFFSET,5,block,Offset injection
+SQLI,%22%20OFFSET,5,block,Dquote offset
+SQLI,SCHEMA_NAME,5,block,Schema name
+SQLI,TABLE_NAME,5,block,Table name
+SQLI,COLUMN_NAME,5,block,Column name
+SQLI,CHARACTER_MAXIMUM_LENGTH,5,block,Character length
+SQLI,GRANT%20ALL,5,block,Grant all
+SQLI,REVOKE%20ALL,5,block,Revoke all
+SQLI,TRUNCATE%20TABLE,5,block,Truncate table
+SQLI,ALTER%20TABLE,5,block,Alter table
+SQLI,RENAME%20TABLE,5,block,Rename table
+SQLI,CREATE%20TABLE,5,block,Create table
+SQLI,DROP%20DATABASE,5,block,Drop database
+SQLI,SHUTDOWN,5,block,Shutdown command
+SQLI,KILL%20PROCESS,5,block,Kill process
+SQLI,LOCK%20TABLES,5,block,Lock tables
+SQLI,UNLOCK%20TABLES,5,block,Unlock tables
+SQLI,FLUSH%20PRIVILEGES,5,block,Flush privileges
+SQLI,RESET%20MASTER,5,block,Reset master
+SQLI,PURGE%20MASTER,5,block,Purge masterSQLI,SELECT.*FROM.*WHERE,5,block,Select from where pattern
+SQLI,INSERT.*INTO.*VALUES,5,block,Insert into values pattern
+SQLI,DELETE\s+FROM\s+\w+\s+WHERE,5,block,Delete from where pattern
+SQLI,DROP\s+TABLE,5,block,Drop table
+SQLI,DROP.*DATABASE,5,block,Drop database
+SQLI,EXEC.*SP_,5,block,SQL Server stored procedure
+SQLI,XP_CMDSHELL,5,block,SQL Server xp_cmdshell
+SQLI,WAITFOR.*DELAY,5,block,SQL Server waitfor delay
+SQLI,BENCHMARK.*SLEEP,5,block,MySQL benchmark sleep
+SQLI,pg_sleep,5,block,PostgreSQL sleep
+SQLI,SLEEP.*SEC,5,block,Sleep function
+SQLI,UNION.*ALL.*SELECT,5,block,Union all select
+SQLI,UNION.*DISTINCT.*SELECT,5,block,Union distinct select
+SQLI,UNNEST.*ARRAY,5,block,PostgreSQL unnest array
+SQLI,CURRENT_USER\s*\(,5,block,Current user function
+SQLI,USER\(\),5,block,User function
+SQLI,DATABASE\(\),5,block,Database function
+SQLI,VERSION\(\),5,block,Version function
+SQLI,SCHEMA_NAME,5,block,Schema name function
+SQLI,TABLE_NAME,5,block,Table name function
+SQLI,COLUMN_NAME,5,block,Column name function
+SQLI,@@VERSION,5,block,SQL Server version
+SQLI,@@USER,5,block,SQL Server user
+SQLI,CONCAT\s*\(.*CHAR\s*\(,5,block,Concat char bypass
+SQLI,\bCHAR\s*\([^)]*\),5,block,Char function bypass
+SQLI,UNHEX.*CONV,5,block,Unhex conv bypass
+SQLI,X'[0-9a-fA-F]+',5,block,MySQL hex string
+SQLI,CONVERT.*VARCHAR,5,block,Convert varchar
+SQLI,REVERSE.*SUBSTRING,5,block,Reverse substring bypass
+SQLI,SUBSTRING.*FROM.*FOR,5,block,Substring from for
+SQLI,LTRIM.*RTRIM,5,block,Ltrim rtrim function
+SQLI,UPPER.*LOWER,5,block,Upper lower function
+SQLI,BINARY.*CAST,5,block,Binary cast bypass
+SQLI,--.*\n,5,block,Multi-line comment
+SQLI,;--,5,block,Semicolon comment
+SQLI,;%00,5,block,Semicolon null byte
+SQLI,IF.*THEN.*ELSE,5,block,IF statement
+SQLI,CASE\s+WHEN\s+\S+(\s+\S+)?\s+THEN,5,block,CASE statement
+SQLI,EXECUTE.*IMMEDIATE,5,block,Execute immediate
+SQLI,DBMS_OUTPUT,5,block,Oracle DBMS output
+SQLI,UTL_INADDR,5,block,Oracle UTL_INADDR
+SQLI,UTL_FILE,5,block,Oracle UTL_FILE
+SQLI,DBMS_LOB,5,block,Oracle DBMS_LOB
+SQLI,XMLTYPE,5,block,Oracle XMLTYPE
+SQLI,SYS_REFCURSOR,5,block,Oracle ref cursor
+SQLI,NVARCHAR,5,block,NVARCHAR bypass
+SQLI,COLLATE,5,block,Collate bypass
+SQLI,NOLOCK,5,block,NOLOCK hint
+SQLI,READPAST,5,block,READPAST hint
+SQLI,ROWLOCK,5,block,ROWLOCK hint
+SQLI,PAGLOCK,5,block,PAGLOCK hint
+SQLI,TABLOCK,5,block,TABLOCK hint
+SQLI,TABLOCKX,5,block,TABLOCKX hint
+SQLI,HOLDLOCK,5,block,HOLDLOCK hint
+SQLI,SERIALIZABLE,5,block,SERIALIZABLE hint
+SQLI,REPEATABLEREAD,5,block,REPEATABLEREAD hint
+SQLI,READCOMMITTED,5,block,READCOMMITTED hint
+SQLI,READUNCOMMITTED,5,block,READUNCOMMITTED hint
+SQLI,\bunion\s+(all\s+|distinct\s+)?select\s+[!-~],5,block,Union select direct
+SQLI,/\*!\s*(select|union|sleep|benchmark|insert|update|delete|from|where)[^*]*\*/,5,block,MySQL executable comment
+SQLI,'\s*\|\|\s*[0-9]+\s*=\s*[0-9.],5,block,OR pipe boolean injection
+SQLI,\b(and|or)\s+1\s*=\s*1\b[[:space:]]*([/'";#&|()<>%+0-9-]|$),5,block,Bare AND 1=1
+SQLI,'\s*(or|and)\s+[0-9]+\s+(limit|union|select),5,block,Quote and/or limit
+SQLI,\b(or|and)\s+[0-9]+\s*=\s*[0-9]+[[:space:]]*([/'";#&|()<>%+0-9-]|$),5,block,Numeric boolean injection
+SQLI,'\s*\|\|\s*[0-9]+\s*=\s*[0-9.(],5,block,OR pipe select injection fixed
+SQLI,sleep\s*\(\s*[0-9],5,block,Sleep numeric arg
+SQLI,benchmark\s*\(\s*[0-9],5,block,Benchmark numeric arg
+SQLI,=\s*\(\s*SELECT\s+['A-Za-z0-9_],5,block,Subquery compare select
+SQLI,\$(regex|where|ne|gt|gte|lt|lte|exists)[\\"]*\s*:,5,block,NoSQL operator
+SQLI,(or|and)[[:space:]]+(/\*[^*]*\*/[[:space:]]*)?["'][0-9]+["']\s*=\s*["'][0-9]+,5,block,Quoted boolean word-salad injection
+SQLI,('\s*(and|or)\s*'|"\s*(and|or)\s*")[=<>'"0-9],5,block,Quote boolean quote injection
+SQLI,\b(and|or)[[:space:]]*/\*[^*]*\*/[[:space:]]*[0-9]+[[:space:]]*=[[:space:]]*[0-9]+,5,block,Comment-separated boolean

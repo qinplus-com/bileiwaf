@@ -1,0 +1,20 @@
+[Unit]
+Description=BileiWAF - Web Application Firewall (data plane + admin plane)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@WAF_PREFIX@
+Environment=WAF_FOREGROUND=1
+ExecStart=@WAF_PREFIX@/waf start
+ExecStop=@WAF_PREFIX@/waf stop
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=10
+LimitNOFILE=65535
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target

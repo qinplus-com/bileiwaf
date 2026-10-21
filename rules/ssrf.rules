@@ -1,0 +1,181 @@
+SSRF,http://0.0.0.0,5,block,0.0.0.0 IP
+SSRF,http://::1,5,block,IPv6 localhost
+SSRF,http://169.254.169.254,5,block,AWS metadata
+SSRF,http://169.254.169.253,5,block,Azure metadata
+SSRF,http://metadata.google.internal,5,block,GCP metadata
+SSRF,http://\[::1\],5,block,IPv6 localhost with brackets
+SSRF,http://10.,5,block,Private network 10.x.x.x
+SSRF,http://172.16.,5,block,Private network 172.16.x.x
+SSRF,http://172.17.,5,block,Private network 172.17.x.x
+SSRF,http://172.18.,5,block,Private network 172.18.x.x
+SSRF,http://172.19.,5,block,Private network 172.19.x.x
+SSRF,http://172.20.,5,block,Private network 172.20.x.x
+SSRF,http://172.21.,5,block,Private network 172.21.x.x
+SSRF,http://172.22.,5,block,Private network 172.22.x.x
+SSRF,http://172.23.,5,block,Private network 172.23.x.x
+SSRF,http://172.24.,5,block,Private network 172.24.x.x
+SSRF,http://172.25.,5,block,Private network 172.25.x.x
+SSRF,http://172.26.,5,block,Private network 172.26.x.x
+SSRF,http://172.27.,5,block,Private network 172.27.x.x
+SSRF,http://172.28.,5,block,Private network 172.28.x.x
+SSRF,http://172.29.,5,block,Private network 172.29.x.x
+SSRF,http://172.30.,5,block,Private network 172.30.x.x
+SSRF,http://172.31.,5,block,Private network 172.31.x.x
+SSRF,http://192.168.,5,block,Private network 192.168.x.x
+SSRF,file:///,5,block,File protocol
+SSRF,gopher://,5,block,Gopher protocol
+SSRF,dict://,5,block,Dict protocol
+SSRF,tftp://,5,block,Tftp protocol
+SSRF,ftp://,5,block,Ftp protocol
+SSRF,http://127.,5,block,Localhost 127.x.x.x
+SSRF,http://0.,5,block,Zero IP range
+SSRF,http://127.0.0.1/,5,block,Localhost with slash
+SSRF,http://localhost/,5,block,Localhost domain with slash
+SSRF,http://0:0:0:0:0:0:0:1,5,block,IPv6 localhost full
+SSRF,http://\[0:0:0:0:0:0:0:1\],5,block,IPv6 localhost brackets
+SSRF,http://fe80:,5,block,IPv6 link-local
+SSRF,http://fc00:,5,block,IPv6 unique local
+SSRF,http://fd00:,5,block,IPv6 unique local fd
+SSRF,http://169.254.,5,block,Link-local address
+SSRF,http://169.254.169.254/,5,block,AWS metadata with slash
+SSRF,http://169.254.169.253/,5,block,Azure metadata with slash
+SSRF,http://metadata.google.internal/,5,block,GCP metadata with slash
+SSRF,http://10.0.0.1,5,block,Private 10.0.0.1
+SSRF,http://192.168.1.1,5,block,Private 192.168.1.1
+SSRF,http://172.16.0.1,5,block,Private 172.16.0.1
+SSRF,http://localhost:80([^0-9]|$),5,block,Localhost port 80
+SSRF,http://localhost:443,5,block,Localhost port 443
+SSRF,http://localhost:3000,5,block,Localhost port 3000
+SSRF,http://localhost:8080,5,block,Localhost port 8080
+SSRF,http://127.0.0.1:80,5,block,127.0.0.1 port 80
+SSRF,http://127.0.0.1:443,5,block,127.0.0.1 port 443
+SSRF,http://127.0.0.1:8080,5,block,127.0.0.1 port 8080
+SSRF,http://unix:/,5,block,Unix socket
+SSRF,http://unix://,5,block,Unix socket double slash
+SSRF,http://unix:///,5,block,Unix socket triple slash
+SSRF,data://,5,block,Data protocol
+SSRF,about://,5,block,About protocol
+SSRF,chrome://,5,block,Chrome protocol
+SSRF,moz://,5,block,Mozilla protocol
+SSRF,sms://,5,block,SMS protocol
+SSRF,tel://,5,block,Tel protocol
+SSRF,mailto://,5,block,Mailto protocol
+SSRF,blob://,5,block,Blob protocol
+SSRF,ws://localhost,5,block,WebSocket localhost
+SSRF,wss://localhost,5,block,WebSocket secure localhost
+SSRF,ws://127.0.0.1,5,block,WebSocket 127.0.0.1
+SSRF,wss://127.0.0.1,5,block,WebSocket secure 127.0.0.1
+SSRF,http://\[::ffff:127\.0\.0\.1\],5,block,IPv6 mapped localhost
+SSRF,http://\[::ffff:7f00:1\],5,block,IPv6 mapped 127.0.0.1
+SSRF,http://127.1,5,block,Short localhost notation
+SSRF,http://127.0.1,5,block,Short localhost notation 2
+SSRF,http://0177.0.0.1,5,block,Octal localhost
+SSRF,http://0x7f.0x0.0x0.0x1,5,block,Hex localhost
+SSRF,http://0x7f000001,5,block,Hex integer localhost
+SSRF,http://2130706433,5,block,Decimal integer localhost
+SSRF,%68%74%74%70://127.0.0.1,5,block,Encoded http localhost
+SSRF,%68%74%74%70%73://127.0.0.1,5,block,Encoded https localhost
+SSRF,hxxp://127.0.0.1,5,block,Obfuscated http localhost
+SSRF,hXXp://127.0.0.1,5,block,Mixed case http localhost
+SSRF,HTTP://127.0.0.1,5,block,Uppercase http localhost
+SSRF,HtTp://127.0.0.1,5,block,Mixed case http localhost
+SSRF,http://%31%32%37%2e%30%2e%30%2e%31,5,block,URL encoded localhost
+SSRF,http://%78%78%78%78,5,block,Encoded localhost alias
+SSRF,http://localhost.localdomain,5,block,Localhost localdomain
+SSRF,http://localhost4,5,block,IPv4 localhost
+SSRF,http://localhost6,5,block,IPv6 localhost
+SSRF,http://ip6-localhost,5,block,IPv6 localhost alias
+SSRF,http://ip6-loopback,5,block,IPv6 loopback
+SSRF,http://ip6-localnet,5,block,IPv6 localnet
+SSRF,http://ip6-mcastprefix,5,block,IPv6 mcastprefix
+SSRF,http://ip6-allnodes,5,block,IPv6 allnodes
+SSRF,http://ip6-allrouters,5,block,IPv6 allrouters
+SSRF,http://ip6-allhosts,5,block,IPv6 allhosts
+SSRF,http://10.0.0.0,5,block,Private network start
+SSRF,http://10.255.255.255,5,block,Private network end
+SSRF,http://172.16.0.0,5,block,Private 172.16 start
+SSRF,http://172.31.255.255,5,block,Private 172.31 end
+SSRF,http://192.168.0.0,5,block,Private 192.168 start
+SSRF,http://192.168.255.255,5,block,Private 192.168 end
+SSRF,http://127.0.0.1:22,5,block,Localhost SSH
+SSRF,http://127.0.0.1:3306,5,block,Localhost MySQL
+SSRF,http://127.0.0.1:5432,5,block,Localhost PostgreSQL
+SSRF,http://127.0.0.1:6379,5,block,Localhost Redis
+SSRF,http://127.0.0.1:27017,5,block,Localhost MongoDB
+SSRF,http://127.0.0.1:5672,5,block,Localhost RabbitMQ
+SSRF,http://127.0.0.1:15672,5,block,Localhost RabbitMQ mgmt
+SSRF,http://127.0.0.1:9200,5,block,Localhost Elasticsearch
+SSRF,http://127.0.0.1:9300,5,block,Localhost Elasticsearch node
+SSRF,http://127.0.0.1:8500,5,block,Localhost Consul
+SSRF,http://127.0.0.1:8400,5,block,Localhost Consul DNS
+SSRF,http://127.0.0.1:8600,5,block,Localhost Consul HTTP
+SSRF,http://127.0.0.1:2181,5,block,Localhost Zookeeper
+SSRF,http://127.0.0.1:3888,5,block,Localhost Zookeeper election
+SSRF,http://127.0.0.1:2888,5,block,Localhost Zookeeper leader
+SSRF,http://127.0.0.1:8000,5,block,Localhost port 8000
+SSRF,http://127.0.0.1:8081,5,block,Localhost port 8081
+SSRF,http://127.0.0.1:8888,5,block,Localhost port 8888
+SSRF,http://127.0.0.1:9000,5,block,Localhost port 9000
+SSRF,http://127.0.0.1:9090,5,block,Localhost port 9090
+SSRF,http://127.0.0.1:9443,5,block,Localhost port 9443
+SSRF,http://127.0.0.1:10000,5,block,Localhost port 10000
+SSRF,http://169.254.169.254/latest,5,block,AWS metadata latest
+SSRF,http://169.254.169.254/latest/meta-data,5,block,AWS metadata path
+SSRF,http://169.254.169.254/latest/user-data,5,block,AWS user data
+SSRF,http://169.254.169.254/latest/dynamic,5,block,AWS dynamic data
+SSRF,http://169.254.169.254/latest/identity,5,block,AWS identity
+SSRF,http://169.254.169.253/metadata,5,block,Azure metadata path
+SSRF,http://169.254.169.253/metadata/instance,5,block,Azure instance metadata
+SSRF,http://169.254.169.253/metadata/identity,5,block,Azure identity metadata
+SSRF,http://metadata.google.internal/computeMetadata,5,block,GCP compute metadata
+SSRF,http://metadata.google.internal/computeMetadata/v1,5,block,GCP v1 metadata
+SSRF,http://metadata.podman.io,5,block,Podman metadata
+SSRF,http://100.127.0.1,5,block,Carrier-grade NAT
+SSRF,http://100.64.0.0,5,block,CGNAT range
+SSRF,http://100.127.255.255,5,block,CGNAT range end
+SSRF,http://192.0.0.0,5,block,Special use network
+SSRF,http://192.0.0.1,5,block,Special use address
+SSRF,http://192.0.0.2,5,block,NAT64 prefix
+SSRF,http://192.0.0.170,5,block,DNS64 address
+SSRF,http://192.0.0.171,5,block,DNS64 address
+SSRF,http://192.0.2.,5,block,Test net 192.0.2.x
+SSRF,http://198.51.100.,5,block,Test net 198.51.100.x
+SSRF,http://203.0.113.,5,block,Test net 203.0.113.x
+SSRF,http://224.,5,block,Multicast network
+SSRF,http://225.,5,block,Multicast network
+SSRF,http://226.,5,block,Multicast network
+SSRF,http://227.,5,block,Multicast network
+SSRF,http://228.,5,block,Multicast network
+SSRF,http://229.,5,block,Multicast network
+SSRF,http://230.,5,block,Multicast network
+SSRF,http://231.,5,block,Multicast network
+SSRF,http://232.,5,block,Multicast network
+SSRF,http://233.,5,block,Multicast network
+SSRF,http://234.,5,block,Multicast network
+SSRF,http://235.,5,block,Multicast network
+SSRF,http://236.,5,block,Multicast network
+SSRF,http://237.,5,block,Multicast network
+SSRF,http://238.,5,block,Multicast network
+SSRF,http://239.,5,block,Multicast network
+SSRF,http://240.,5,block,Reserved network
+SSRF,http://241.,5,block,Reserved network
+SSRF,http://242.,5,block,Reserved network
+SSRF,http://243.,5,block,Reserved network
+SSRF,http://244.,5,block,Reserved network
+SSRF,http://245.,5,block,Reserved network
+SSRF,http://246.,5,block,Reserved network
+SSRF,http://247.,5,block,Reserved network
+SSRF,http://248.,5,block,Reserved network
+SSRF,http://249.,5,block,Reserved network
+SSRF,http://250.,5,block,Reserved network
+SSRF,http://251.,5,block,Reserved network
+SSRF,http://252.,5,block,Reserved network
+SSRF,http://253.,5,block,Reserved network
+SSRF,http://254.,5,block,Reserved network
+SSRF,http://255.255.255.255,5,block,Broadcast address
+SSRF,http://\[::\],5,block,IPv6 unspecified
+SSRF,http://\[2001:0db8::\],5,block,IPv6 documentation
+SSRF,http://\[2001:DB8::\],5,block,IPv6 documentation uppercase
+SSRF,http://\[::ffff:0:0:0:0:0:1\],5,block,IPv6 mapped IPv4
+SSRF,http://\[::ffff:0:0:0:0:0:127\.0\.0\.1\],5,block,IPv6 mapped localhostSSRF,https?://[^/\s]+@,5,block,URL credential bypass
+SSRF,url=https?://[^/&"'\s]*@,5,block,SSRF authority at

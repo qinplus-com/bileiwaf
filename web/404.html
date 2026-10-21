@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>404 - 页面不存在</title>
+<style>
+:root{--bg:#0b1220;--cyan:#35e0c8;--blue:#4da3ff;--muted:#7d8fa8;--ink:#d8e4f5}
+*{margin:0;padding:0;box-sizing:border-box}
+body{height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink);
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;overflow:hidden;position:relative}
+body::before{content:"";position:fixed;inset:0;opacity:.5;pointer-events:none;
+  background-image:linear-gradient(rgba(77,163,255,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(77,163,255,.055) 1px,transparent 1px);background-size:52px 52px;
+  -webkit-mask-image:radial-gradient(900px 640px at 50% 45%,#000,transparent 78%);
+  mask-image:radial-gradient(900px 640px at 50% 45%,#000,transparent 78%)}
+.card{position:relative;z-index:1;text-align:center;padding:64px 88px;border-radius:18px;
+  background:rgba(15,24,44,.72);border:1px solid #1c2f4d;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.num{font-size:120px;font-weight:800;letter-spacing:8px;line-height:1;
+  background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 40px rgba(77,163,255,.35)}
+.tip{margin:22px 0 8px;font-size:17px;color:var(--ink);letter-spacing:1px}
+.sub{font-size:13px;color:var(--muted);letter-spacing:1px}
+.badge{display:inline-flex;align-items:center;gap:8px;margin-top:30px;padding:9px 22px;border-radius:22px;
+  border:1px solid rgba(53,224,200,.4);color:var(--cyan);font-size:13px;letter-spacing:1px;background:rgba(53,224,200,.08)}
+.brand{margin-top:34px;display:flex;align-items:center;justify-content:center;gap:10px}
+.brand img{width:44px;height:44px;object-fit:contain}
+.brand b{font-size:16px;letter-spacing:2px}
+.brand small{color:var(--muted);font-size:11px;letter-spacing:2px;display:block;margin-top:2px}
+a.home{display:inline-block;margin-top:26px;color:var(--blue);font-size:14px;text-decoration:none;letter-spacing:1px}
+a.home:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="num">404</div>
+    <div class="tip">您访问的页面不存在或已被移除</div>
+    <div class="sub">The page you requested does not exist or has been removed</div>
+    <div class="badge">✦ 404 页面支持用户自定义 · 本页由站点管理员配置</div>
+    <div class="brand">
+      <img src="/images/bileiwaf_logo.png" alt="logo">
+      <div style="text-align:left"><b>壁垒WAF</b><small>BILEIWAF · WEB APPLICATION FIREWALL</small></div>
+    </div>
+    <a class="home" href="/">返回首页 →</a>
+  </div>
+</body>
+</html>

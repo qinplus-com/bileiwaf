@@ -1,0 +1,403 @@
+CMD,\$\(\s*(whoami|id|uname|cat|ls|pwd|hostname|curl|wget|nc|ping|echo|sleep|bash|sh|rm|cp|mv|chmod|chown|ps|netstat|ifconfig|ip|env|which|base64|python|perl|ruby|php|nslookup|dig|head|tail|tar|find|grep|awk|sed|socat|telnet|ssh|sudo|kill|touch|mkdir|xxd|od|tr|cut|wc|sort|uniq|history|lsof|ss|route|iptables|mount|df|du|free|top|crontab|systemctl|service|make|gcc|java|node|git|docker)\b,5,block,Command substitution with shell command
+CMD,;cat[[:space:]]+/,5,block,Semicolon cat path
+CMD,; ls,5,block,Semicolon ls
+CMD,;rm,5,block,Semicolon rm
+CMD,\$\{jndi:\},5,block,JNDI injection
+CMD,class.module.classLoader,5,block,Tomcat classloader exploit
+CMD,wget ,5,block,Wget command
+CMD,curl ,5,block,Curl command
+CMD,\bnc\s+-,5,block,Netcat command
+CMD,rm -rf ,5,block,Remove recursive force
+CMD,/bin/bash,5,block,Bin bash
+CMD,/bin/sh,5,block,Bin sh
+CMD,/bin/cat,5,block,Bin cat
+CMD,/bin/ls,5,block,Bin ls
+CMD,/bin/ps,5,block,Bin ps
+CMD,/bin/kill,5,block,Bin kill
+CMD,; cat ,5,block,Semicolon cat
+CMD,; ls ,5,block,Semicolon ls
+CMD,; rm ,5,block,Semicolon rm
+CMD,\| cat ,5,block,Pipe cat
+CMD,\| ls ,5,block,Pipe ls
+CMD,& cat ,5,block,Ampersand cat
+CMD,& ls ,5,block,Ampersand ls
+CMD,(^|=|;|\||`|&|\(|\$\()\s*ping\s,5,block,Ping command
+CMD,nslookup ,5,block,Nslookup command
+CMD,whoami ,5,block,Whoami command
+CMD,uname ,5,block,Uname command
+CMD,hostname ,5,block,Hostname command
+CMD,ifconfig ,5,block,Ifconfig command
+CMD,ip addr ,5,block,Ip addr command
+CMD,netstat ,5,block,Netstat command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*route\s,5,block,Route command
+CMD,arp ,5,block,Arp command
+CMD,who ,5,block,Who command
+CMD,htop ,5,block,Htop command
+CMD,killall ,5,block,Killall command
+CMD,pkill ,5,block,Pkill command
+CMD,kill -9 ,5,block,Kill signal 9
+CMD,chmod ,5,block,Chmod command
+CMD,chown ,5,block,Chown command
+CMD,chgrp ,5,block,Chgrp command
+CMD,chroot ,5,block,Chroot command
+CMD,mkdir ,5,block,Mkdir command
+CMD,rmdir ,5,block,Rmdir command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*touch\s+,5,block,Touch command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*ln\s,5,block,Ln command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*mv\s,5,block,Mv command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*cp\s+,5,block,Cp command
+CMD,\btar\s+-,5,block,Tar command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*gzip\s+,5,block,Gzip command
+CMD,bzip2 ,5,block,Bzip2 command
+CMD,\bzip[[:space:]]+-[a-zA-Z],5,block,Zip command
+CMD,unzip ,5,block,Unzip command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*find\s,5,block,Find command
+CMD,grep ,5,block,Grep command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*awk\s+,5,block,Awk command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*paste\s+,5,block,Paste command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*sort\s+,5,block,Sort command
+CMD,uniq ,5,block,Unix command
+CMD,\btr\s+-,5,block,Tr command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*head\s,5,block,Head command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*tail\s+,5,block,Tail command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*wc\s,5,block,Wc command
+CMD,cat /etc/shadow,5,block,Read shadow
+CMD,cat /etc/group,5,block,Read group
+CMD,cat /etc/hosts,5,block,Read hosts
+CMD,cat /proc/version,5,block,Read proc version
+CMD,cat /proc/cpuinfo,5,block,Read proc cpuinfo
+CMD,cat /proc/meminfo,5,block,Read proc meminfo
+CMD,cat /proc/net/route,5,block,Read proc net route
+CMD,cat /proc/net/tcp,5,block,Read proc net tcp
+CMD,cat /proc/net/udp,5,block,Read proc net udp
+CMD,cat /proc/net/fib_trie,5,block,Read proc net fib
+CMD,cat /etc/resolv.conf,5,block,Read resolv.conf
+CMD,cat /etc/issue,5,block,Read issue
+CMD,cat /etc/motd,5,block,Read motd
+CMD,cat /var/log/auth.log,5,block,Read auth log
+CMD,cat /var/log/syslog,5,block,Read syslog
+CMD,cat /var/log/messages,5,block,Read messages
+CMD,cat /var/log/secure,5,block,Read secure log
+CMD,cat /var/log/httpd,5,block,Read httpd log
+CMD,cat /var/log/nginx,5,block,Read nginx log
+CMD,cat /var/log/mysql,5,block,Read mysql log
+CMD,cat /var/log/postgresql,5,block,Read postgresql log
+CMD,cat /var/log/apache2,5,block,Read apache2 log
+CMD,cat /var/www/html,5,block,Read web root
+CMD,cat /var/www/,5,block,Read www
+CMD,cat /home/,5,block,Read home dir
+CMD,cat /root/,5,block,Read root dir
+CMD,cat /tmp/,5,block,Read tmp dir
+CMD,cat /var/tmp/,5,block,Read var tmp dir
+CMD,cat /dev/null,5,block,Read dev null
+CMD,cat /dev/zero,5,block,Read dev zero
+CMD,cat /dev/random,5,block,Read dev random
+CMD,cat /dev/urandom,5,block,Read dev urandom
+CMD,nmap ,5,block,Nmap command
+CMD,\btelnet[[:space:]]+-,5,block,Telnet command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*ftp\s+,5,block,Ftp command
+CMD,ssh ,5,block,Ssh command
+CMD,\bsftp[[:space:]]+-,5,block,Sftp command
+CMD,scp ,5,block,Scp command
+CMD,(^|=|;|\||`|&|\(|\$\()\s*rsync\s+,5,block,Rsync command
+CMD,nc -e ,5,block,Netcat with shell
+CMD,(^|=|;|\||`|&|\(|\$\()\s*ncat\s+,5,block,Ncat command
+CMD,socat ,5,block,Socat command
+CMD,openssl ,5,block,Openssl command
+CMD,nc -lvp ,5,block,Netcat listen
+CMD,ncat -lvp ,5,block,Ncat listen
+CMD,bash -c ,5,block,Bash command
+CMD,sh -c ,5,block,Sh command
+CMD,zsh -c ,5,block,Zsh command
+CMD,ksh -c ,5,block,Ksh command
+CMD,csh -c ,5,block,Csh command
+CMD,dash -c ,5,block,Dash command
+CMD,perl -e ,5,block,Perl execute
+CMD,python -c ,5,block,Python execute
+CMD,python3 -c ,5,block,Python3 execute
+CMD,php -r ,5,block,Php execute
+CMD,ruby -e ,5,block,Ruby execute
+CMD,node -e ,5,block,Node execute
+CMD,lua -e ,5,block,Lua execute
+CMD,sed -e 's/,5,block,Sed execute
+CMD,find . -exec ,5,block,Find exec
+CMD,find / -exec ,5,block,Find root exec
+CMD,xargs ,5,block,Xargs command
+CMD,pipes ,5,block,Pipes chain
+CMD,export PATH=,5,block,Export path
+CMD,set PATH=,5,block,Set path
+CMD,BASH_ENV=,5,block,Bash env variable
+CMD,PATH=/tmp,5,block,Path tmp
+CMD,PATH=/var/tmp,5,block,Path var tmp
+CMD,/sbin/ifconfig,5,block,Sbin ifconfig
+CMD,/sbin/route,5,block,Sbin route
+CMD,/sbin/arp,5,block,Sbin arp
+CMD,/sbin/iptables,5,block,Sbin iptables
+CMD,/sbin/ip6tables,5,block,Sbin ip6tables
+CMD,/sbin/ip,5,block,Sbin ip
+CMD,/sbin/ethtool,5,block,Sbin ethtool
+CMD,/usr/bin/wget,5,block,Usr bin wget
+CMD,/usr/bin/curl,5,block,Usr bin curl
+CMD,/usr/bin/nc,5,block,Usr bin nc
+CMD,/usr/bin/python,5,block,Usr bin python
+CMD,/usr/bin/python3,5,block,Usr bin python3
+CMD,/usr/bin/perl,5,block,Usr bin perl
+CMD,/usr/bin/php,5,block,Usr bin php
+CMD,/usr/bin/ruby,5,block,Usr bin ruby
+CMD,/usr/bin/node,5,block,Usr bin node
+CMD,/usr/bin/lua,5,block,Usr bin lua
+CMD,/usr/bin/awk,5,block,Usr bin awk
+CMD,/usr/bin/sed,5,block,Usr bin sed
+CMD,/usr/bin/grep,5,block,Usr bin grep
+CMD,/usr/bin/find,5,block,Usr bin find
+CMD,/usr/bin/ssh,5,block,Usr bin ssh
+CMD,/usr/bin/scp,5,block,Usr bin scp
+CMD,/usr/bin/sftp,5,block,Usr bin sftp
+CMD,/usr/bin/telnet,5,block,Usr bin telnet
+CMD,/usr/bin/ftp,5,block,Usr bin ftp
+CMD,/usr/bin/nmap,5,block,Usr bin nmap
+CMD,/usr/bin/openssl,5,block,Usr bin openssl
+CMD,/usr/bin/nslookup,5,block,Usr bin nslookup
+CMD,/usr/bin/dig,5,block,Usr bin dig
+CMD,/usr/bin/host,5,block,Usr bin host
+CMD,/usr/bin/whois,5,block,Usr bin whois
+CMD,/usr/bin/netstat,5,block,Usr bin netstat
+CMD,/usr/bin/ps,5,block,Usr bin ps
+CMD,/usr/bin/top,5,block,Usr bin top
+CMD,/usr/bin/htop,5,block,Usr bin htop
+CMD,/usr/bin/kill,5,block,Usr bin kill
+CMD,/usr/bin/killall,5,block,Usr bin killall
+CMD,/usr/bin/pkill,5,block,Usr bin pkill
+CMD,/usr/bin/chmod,5,block,Usr bin chmod
+CMD,/usr/bin/chown,5,block,Usr bin chown
+CMD,/usr/bin/chgrp,5,block,Usr bin chgrp
+CMD,/usr/bin/mkdir,5,block,Usr bin mkdir
+CMD,/usr/bin/rmdir,5,block,Usr bin rmdir
+CMD,/usr/bin/touch,5,block,Usr bin touch
+CMD,/usr/bin/ln,5,block,Usr bin ln
+CMD,/usr/bin/mv,5,block,Usr bin mv
+CMD,/usr/bin/cp,5,block,Usr bin cp
+CMD,/usr/bin/rm,5,block,Usr bin rm
+CMD,/usr/bin/tar,5,block,Usr bin tar
+CMD,/usr/bin/gzip,5,block,Usr bin gzip
+CMD,/usr/bin/bzip2,5,block,Usr bin bzip2
+CMD,/usr/bin/zip,5,block,Usr bin zip
+CMD,/usr/bin/unzip,5,block,Usr bin unzip
+CMD,/usr/bin/cat,5,block,Usr bin cat
+CMD,/usr/bin/ls,5,block,Usr bin ls
+CMD,/usr/bin/wc,5,block,Usr bin wc
+CMD,/usr/bin/head,5,block,Usr bin head
+CMD,/usr/bin/tail,5,block,Usr bin tail
+CMD,/usr/bin/cut,5,block,Usr bin cut
+CMD,/usr/bin/paste,5,block,Usr bin paste
+CMD,/usr/bin/sort,5,block,Usr bin sort
+CMD,/usr/bin/uniq,5,block,Usr bin uniq
+CMD,/usr/bin/tr,5,block,Usr bin tr
+CMD,/usr/bin/whoami,5,block,Usr bin whoami
+CMD,/usr/bin/id,5,block,Usr bin id
+CMD,/usr/bin/uname,5,block,Usr bin uname
+CMD,/usr/bin/hostname,5,block,Usr bin hostname
+CMD,/usr/bin/who,5,block,Usr bin who
+CMD,/usr/bin/w,5,block,Usr bin w
+CMD,/usr/bin/last,5,block,Usr bin last
+CMD,/usr/local/bin/wget,5,block,Local bin wget
+CMD,/usr/local/bin/curl,5,block,Local bin curl
+CMD,/usr/local/bin/nc,5,block,Local bin nc
+CMD,/usr/local/bin/python,5,block,Local bin python
+CMD,/usr/local/bin/python3,5,block,Local bin python3
+CMD,/usr/local/bin/perl,5,block,Local bin perl
+CMD,/usr/local/bin/php,5,block,Local bin php
+CMD,/usr/local/bin/ruby,5,block,Local bin ruby
+CMD,/usr/local/bin/node,5,block,Local bin node
+CMD,/usr/local/bin/nmap,5,block,Local bin nmap
+CMD,/usr/local/bin/openssl,5,block,Local bin openssl
+CMD,cmd.exe /c,5,block,Windows cmd exe
+CMD,powershell.exe /c,5,block,Windows powershell exe
+CMD,wscript.exe /c,5,block,Windows wscript exe
+CMD,cscript.exe /c,5,block,Windows cscript exe
+CMD,start cmd,5,block,Windows start cmd
+CMD,start powershell,5,block,Windows start powershell
+CMD,cmd /k,5,block,Windows cmd keep
+CMD,powershell /k,5,block,Windows powershell keep
+CMD,\\\\\\\\localhost,5,block,UNC localhost
+CMD,\\\\\\\\127.0.0.1,5,block,UNC loopback
+CMD,\\\\\\\\[::1],5,block,UNC ipv6 loopback
+CMD,\\\\\\\\server,5,block,UNC server
+CMD,\\\\\\\\share,5,block,UNC share
+CMD,\\\\\\\\IP,5,block,UNC IP
+CMD,\\\\\\\\hostname,5,block,UNC hostname
+CMD,%WINDIR%,5,block,Windows windir
+CMD,%TEMP%,5,block,Windows temp
+CMD,%TMP%,5,block,Windows tmp
+CMD,%USERPROFILE%,5,block,Windows userprofile
+CMD,%APPDATA%,5,block,Windows appdata
+CMD,%LOCALAPPDATA%,5,block,Windows localappdata
+CMD,%ProgramFiles%,5,block,Windows programfiles
+CMD,%ProgramFiles(x86)%,5,block,Windows programfiles x86
+CMD,%CommonProgramFiles%,5,block,Windows commonprogramfiles
+CMD,%CommonProgramFiles(x86)%,5,block,Windows commonprogramfiles x86
+CMD,%PATH%,5,block,Windows path
+CMD,%COMSPEC%,5,block,Windows comspec
+CMD,%CMDCMDLINE%,5,block,Windows cmdcmdline
+CMD,%CD%,5,block,Windows cd
+CMD,%DATE%,5,block,Windows date
+CMD,%TIME%,5,block,Windows time
+CMD,%RANDOM%,5,block,Windows random
+CMD,%ERRORLEVEL%,5,block,Windows errorlevel
+CMD,%PROCESSOR_ARCHITECTURE%,5,block,Windows processor arch
+CMD,%PROCESSOR_IDENTIFIER%,5,block,Windows processor identifier
+CMD,%PROCESSOR_LEVEL%,5,block,Windows processor level
+CMD,%PROCESSOR_REVISION%,5,block,Windows processor revision
+CMD,%NUMBER_OF_PROCESSORS%,5,block,Windows number of processors
+CMD,%OS%,5,block,Windows os
+CMD,%USERDOMAIN%,5,block,Windows userdomain
+CMD,%USERNAME%,5,block,Windows username
+CMD,%USERDNSDOMAIN%,5,block,Windows userdnsdomain
+CMD,%COMPUTERNAME%,5,block,Windows computername
+CMD,%LOGONSERVER%,5,block,Windows logonserver
+CMD,%SESSIONNAME%,5,block,Windows sessionname
+CMD,%CLIENTNAME%,5,block,Windows clientname
+CMD,%HOMEDRIVE%,5,block,Windows homedrive
+CMD,%HOMEPATH%,5,block,Windows homepath
+CMD,%HOME%,5,block,Windows home
+CMD,%APPLI_PATH%,5,block,Windows appli path
+CMD,%PSModulePath%,5,block,Windows ps module path
+CMD,%PUBLIC%,5,block,Windows public
+CMD,%windir%,5,block,Windows windir lowercase
+CMD,%temp%,5,block,Windows temp lowercase
+CMD,%tmp%,5,block,Windows tmp lowercase
+CMD,%userprofile%,5,block,Windows userprofile lowercase
+CMD,%appdata%,5,block,Windows appdata lowercase
+CMD,%localappdata%,5,block,Windows localappdata lowercase
+CMD,%programfiles%,5,block,Windows programfiles lowercase
+CMD,%programfiles(x86)%,5,block,Windows programfiles x86 lowercase
+CMD,%commonprogramfiles%,5,block,Windows commonprogramfiles lowercase
+CMD,%commonprogramfiles(x86)%,5,block,Windows commonprogramfiles x86 lowercase
+CMD,%path%,5,block,Windows path lowercase
+CMD,%comspec%,5,block,Windows comspec lowercase
+CMD,%cd%,5,block,Windows cd lowercase
+CMD,%date%,5,block,Windows date lowercase
+CMD,%time%,5,block,Windows time lowercase
+CMD,%random%,5,block,Windows random lowercase
+CMD,%errorlevel%,5,block,Windows errorlevel lowercase
+CMD,%os%,5,block,Windows os lowercase
+CMD,%username%,5,block,Windows username lowercase
+CMD,%computername%,5,block,Windows computername lowercase
+CMD,%logonserver%,5,block,Windows logonserver lowercase
+CMD,%sessionname%,5,block,Windows sessionname lowercase
+CMD,%homedrive%,5,block,Windows homedrive lowercase
+CMD,%homepath%,5,block,Windows homepath lowercase
+CMD,%home%,5,block,Windows home lowercase
+CMD,%public%,5,block,Windows public lowercase
+CMD,net user,5,block,Windows net user
+CMD,net localgroup,5,block,Windows net localgroup
+CMD,net group,5,block,Windows net group
+CMD,net share,5,block,Windows net share
+CMD,net use,5,block,Windows net use
+CMD,net view,5,block,Windows net view
+CMD,net print,5,block,Windows net print
+CMD,net send,5,block,Windows net send
+CMD,net config,5,block,Windows net config
+CMD,net help,5,block,Windows net help
+CMD,net start,5,block,Windows net start
+CMD,net stop,5,block,Windows net stop
+CMD,net pause,5,block,Windows net pause
+CMD,net continue,5,block,Windows net continue
+CMD,net statistics,5,block,Windows net statistics
+CMD,net accounts,5,block,Windows net accounts
+CMD,net computer,5,block,Windows net computer
+CMD,net domain,5,block,Windows net domain
+CMD,net group,5,block,Windows net group
+CMD,net localgroup,5,block,Windows net localgroup
+CMD,net password,5,block,Windows net password
+CMD,net session,5,block,Windows net session
+CMD,net share,5,block,Windows net share
+CMD,net use,5,block,Windows net use
+CMD,net user,5,block,Windows net user
+CMD,net view,5,block,Windows net view
+CMD,netsh firewall,5,block,Windows netsh firewall
+CMD,netsh advfirewall,5,block,Windows netsh advfirewall
+CMD,netsh interface,5,block,Windows netsh interface
+CMD,netsh routing,5,block,Windows netsh routing
+CMD,netsh wins,5,block,Windows netsh wins
+CMD,netsh dhcp,5,block,Windows netsh dhcp
+CMD,netsh dns,5,block,Windows netsh dns
+CMD,netsh ipsec,5,block,Windows netsh ipsec
+CMD,netsh isatap,5,block,Windows netsh isatap
+CMD,netsh nat,5,block,Windows netsh nat
+CMD,netsh p2p,5,block,Windows netsh p2p
+CMD,netsh ras,5,block,Windows netsh ras
+CMD,netsh rpc,5,block,Windows netsh rpc
+CMD,netsh trace,5,block,Windows netsh trace
+CMD,netsh wlan,5,block,Windows netsh wlan
+CMD,netsh winsock,5,block,Windows netsh winsock
+CMD,netsh wfp,5,block,Windows netsh wfp
+CMD,reg query,5,block,Windows reg query
+CMD,reg add,5,block,Windows reg add
+CMD,reg delete,5,block,Windows reg delete
+CMD,reg copy,5,block,Windows reg copy
+CMD,reg export,5,block,Windows reg export
+CMD,reg import,5,block,Windows reg import
+CMD,reg load,5,block,Windows reg load
+CMD,reg unload,5,block,Windows reg unload
+CMD,reg compare,5,block,Windows reg compare
+CMD,reg save,5,block,Windows reg save
+CMD,reg restore,5,block,Windows reg restore
+CMD,reg find,5,block,Windows reg find
+CMD,reg replace,5,block,Windows reg replace
+CMD,reg backup,5,block,Windows reg backup
+CMD,reg restore,5,block,Windows reg restore
+CMD,reg set,5,block,Windows reg set
+CMD,reg get,5,block,Windows reg get
+CMD,reg enum,5,block,Windows reg enum
+CMD,HKLM\\,5,block,Windows HKLM
+CMD,HKCU,5,block,Windows HKCU
+CMD,HKCR,5,block,Windows HKCR
+CMD,HKU\\\\,5,block,Windows HKU
+CMD,HKCC,5,block,Windows HKCC
+CMD,HKEY_LOCAL_MACHINE,5,block,Windows HKEY_LOCAL_MACHINE
+CMD,HKEY_CURRENT_USER,5,block,Windows HKEY_CURRENT_USER
+CMD,HKEY_CLASSES_ROOT,5,block,Windows HKEY_CLASSES_ROOT
+CMD,HKEY_USERS,5,block,Windows HKEY_USERS
+CMD,invokefunction,5,block,ThinkPHP invokefunction
+CMD,call_user_func,5,block,PHP call_user_func
+CMD,\{dede:field,5,block,DedeCMS field tag
+CMD,runphp='yes',5,block,DedeCMS runphp
+CMD,/think/,5,block,ThinkPHP path
+CMD,index.php?s=,5,block,ThinkPHP route
+CMD,vulnerabilities/xss,5,block,XSS test path
+CMD,tag_test_action.php,5,block,Tag test action
+CMD,partcode=,5,block,DedeCMS partcode
+CMD,/context.json,5,block,Context json path
+CMD,HKEY_CURRENT_CONFIG,5,block,Windows HKEY_CURRENT_CONFIG
+CMD,\)\(+\|,5,block,LDAP filter injection
+CMD,\$\{#,5,block,OGNL expression injection
+CMD,com\.mchange\.v2\.c3p0|WrapperConnectionPoolDataSource|HexAsciiSerializedMap,5,block,c3p0 deserialization
+CMD,(^|=|;|\||`|&|\(|\$\()\s*echo\s,5,block,Echo command
+CMD,%\{#,5,block,OGNL percent-brace injection
+CMD,#context\s*\.get\s*\(,5,block,OGNL context get
+CMD,<\?php\s*(system|exec|passthru|shell_exec|eval|assert|\$_(GET|POST|REQUEST|COOKIE)),5,block,PHP webshell
+CMD,<\?php\s*\$_,5,block,PHP webshell superglobal
+CMD,phpinfo\s*\(,5,block,phpinfo disclosure
+CMD,(chr\s*\(\s*[0-9]+\s*\)\s*[+)]\s*){2},5,block,chr concatenation
+CMD,utilCmdArgs,5,block,F5 iControl bash
+CMD,file_put_contents,5,block,PHP file write
+CMD,\$\\+[AB]\{,5,block,Nexus EL injection
+CMD,T\(java\.lang\.(Runtime|System|ProcessBuilder),5,block,SpEL type ref
+CMD,O:[0-9]+:"[^"]+":[0-9]+:\{,5,block,PHP object injection
+CMD,new java\.lang\.ProcessBuilder,5,block,ProcessBuilder create
+CMD,`(whoami|uname|id)`,5,block,Backtick command
+CMD,%0[dD]%0[aA](%0[dD]|%0[aA])*X-[A-Za-z0-9-]+%3[aA],5,block,CRLF X-header injection
+CMD,element_parents=account,5,block,Drupalgeddon element parents
+CMD,rO0ABXNy,5,block,Java serialized object base64
+CMD,%ac%ed%00%05,5,block,Java serialized raw
+CMD,O:[0-9]+:"[^"]*",5,block,PHP object injection raw
+CMD,\.\.;,5,block,Semicolon path traversal
+CMD,IO\.popen,5,block,Lua io.popen
+CMD,require\('os'\),5,block,Lua require os
+CMD,>\s*shell\.php,5,block,Shell redirect shell.php
+CMD,xp_dirtree,5,block,SQL Server xp_dirtree
+CMD,>[^/:[:space:]&<>|"']*\.php,5,block,Shell redirect php
+CMD,%\{\s*\(,5,block,OGNL percent-brace paren injection
+CMD,@ognl\.[A-Za-z]+@,5,block,OGNL static access
+CMD,eval[[:space:]]+request,5,block,PHP eval request

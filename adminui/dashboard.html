@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>壁垒WAF · 安全防护监控大屏</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.85);
+  --line:#1c2f4d; --ink:#d8e4f5; --muted:#7d8fa8;
+  --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c; --orange:#ffb454; --purple:#9d7bff;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink); overflow:hidden;
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
+  background-image:
+    radial-gradient(1200px 500px at 50% -10%, rgba(77,163,255,.10), transparent 60%),
+    radial-gradient(900px 420px at 100% 110%, rgba(53,224,200,.06), transparent 60%),
+    radial-gradient(900px 420px at 0% 110%, rgba(157,123,255,.05), transparent 60%);
+}
+#app{height:100vh;display:flex;flex-direction:column;padding:0 14px 12px}
+
+/* ---------- 顶部 ---------- */
+header{height:72px;display:flex;align-items:center;position:relative;flex:none}
+.h-line{flex:1;height:2px;position:relative;overflow:hidden}
+.h-line::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--line))}
+.h-line.r::after{background:linear-gradient(270deg,transparent,var(--line))}
+.h-title{padding:0 34px;text-align:center;position:relative}
+.h-title h1{
+  font-size:26px;letter-spacing:6px;font-weight:700;white-space:nowrap;
+  background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 24px rgba(77,163,255,.35);
+}
+.h-sub{font-size:11px;letter-spacing:5px;color:var(--muted);margin-top:2px;text-transform:uppercase}
+.logo{display:flex;align-items:center;gap:10px;position:absolute;left:6px;top:50%;transform:translateY(-50%)}
+.logo img{width:200px;height:200px;object-fit:contain}
+.logo .t1{font-size:16px;font-weight:700;letter-spacing:2px}
+.logo .t2{font-size:10px;color:var(--muted);letter-spacing:1px}
+.h-right{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:14px}
+.badge{display:flex;align-items:center;gap:7px;padding:5px 13px;border:1px solid rgba(53,224,200,.4);
+  border-radius:20px;color:var(--cyan);font-size:12px;letter-spacing:2px;background:rgba(53,224,200,.08)}
+.badge .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.25}}
+#clock{font-size:19px;font-weight:600;letter-spacing:1px;color:#cfe3ff;font-variant-numeric:tabular-nums}
+#clock small{font-size:11px;color:var(--muted);display:block;text-align:right;letter-spacing:2px}
+
+/* ---------- 统计卡 ---------- */
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;height:96px;margin:4px 0 10px;flex:none}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;position:relative;
+  display:flex;align-items:center;padding:0 20px;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:18%;bottom:18%;width:3px;border-radius:3px;background:var(--c,#4da3ff)}
+.card::after{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;
+  background:radial-gradient(circle,color-mix(in srgb,var(--c,#4da3ff) 22%,transparent),transparent 70%)}
+.card .ico{font-size:26px;margin-right:16px;opacity:.9}
+.card .v{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--c,#4da3ff);line-height:1.1}
+.card .l{font-size:12px;color:var(--muted);letter-spacing:2px;margin-top:4px}
+
+/* ---------- 主体 ---------- */
+main{flex:1;display:grid;grid-template-columns:24% 1fr 24.5%;grid-template-rows:1fr 236px;gap:10px;min-height:0}
+.col{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;min-height:0;min-width:0}
+.panel-h{height:36px;flex:none;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid var(--line);
+  font-size:14px;letter-spacing:2px;font-weight:600}
+.panel-h::before{content:"";width:4px;height:14px;border-radius:2px;background:var(--cyan);margin-right:9px}
+.panel-h .more{margin-left:auto;font-size:11px;color:var(--muted);letter-spacing:1px;font-weight:400}
+.chart{flex:1;min-height:0}
+
+/* 地图 */
+.map-wrap{grid-column:2;grid-row:1}
+#mapChart{width:100%;height:100%}
+
+/* 实时攻击流 */
+.stream{list-style:none;overflow:hidden;position:relative;flex:1}
+.stream li{display:grid;grid-template-columns:58px 74px 96px 104px 1fr;gap:7px;padding:7px 12px;font-size:12px;
+  border-bottom:1px dashed rgba(28,47,77,.6);align-items:center;white-space:nowrap;overflow:hidden}
+.stream li.fresh{animation:slidein .5s ease}
+@keyframes slidein{from{transform:translateY(-14px);opacity:0;background:rgba(77,163,255,.16)}to{transform:none;opacity:1}}
+.stream .t{color:var(--muted);font-variant-numeric:tabular-nums}
+.tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:11px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis}
+.stream .ipv{color:#cfe3ff;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.stream .src{color:var(--cyan);overflow:hidden;text-overflow:ellipsis}
+.stream .path{color:#a8bdd8;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left}
+.stream-head{flex:none;display:grid;grid-template-columns:58px 74px 96px 104px 1fr;gap:7px;padding:6px 12px;
+  font-size:10px;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--line);background:rgba(13,25,46,.4)}
+
+/* TOP IP 条 */
+.topip{padding:8px 14px 12px;overflow:hidden}
+.topip .row{display:grid;grid-template-columns:100px 60px 1fr 48px;align-items:center;gap:8px;margin:8px 0;font-size:12px}
+.topip .ip{color:#cfe3ff;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.topip .geo{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.topip .bar{height:9px;background:rgba(28,47,77,.9);border-radius:5px;overflow:hidden}
+.topip .bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#2b7bff,var(--cyan));
+  transition:width .8s ease}
+.topip .n{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* 底部行 */
+.trend-wrap{grid-column:1 / 4;grid-row:2;display:grid;grid-template-columns:1fr 24% 24%;gap:10px;min-height:0}
+.trend-wrap .panel{min-width:0}
+#trendChart,#pathChart,#ruleChart{width:100%;height:calc(100% - 36px)}
+.toplist{flex:1;overflow:hidden;padding:6px 14px 10px}
+.toplist .row{display:flex;gap:8px;align-items:center;margin:7px 0;font-size:12px}
+.toplist .k{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cfe3ff}
+.toplist .k i{font-style:normal;color:var(--purple);font-family:Consolas,monospace;font-size:11px;margin-right:6px}
+.toplist .n{color:var(--muted);font-variant-numeric:tabular-nums}
+.toplist .row .bar{flex:.7;height:8px;border-radius:4px;background:rgba(28,47,77,.9);overflow:hidden}
+.toplist .bar i{display:block;height:100%;background:linear-gradient(90deg,#7b5cff,var(--purple));transition:width .8s}
+
+footer{flex:none;display:flex;justify-content:space-between;padding:8px 6px 0;font-size:11px;color:var(--muted);letter-spacing:1px}
+footer b{color:#a8c6ee;font-weight:600}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo"><img src="/images/bileiwaf_logo.png" alt="壁垒WAF"></div>
+    <div class="h-line"></div>
+    <div class="h-title"><h1>安全防护监控大屏</h1><div class="sub">Web Application Firewall · System Monitor</div></div>
+    <div class="h-line r"></div>
+    <div class="h-right">
+      <a href="/admin/index.html" id="lnk_admin" style="color:var(--muted);text-decoration:none;font-size:12px;letter-spacing:2px;
+        padding:5px 13px;border:1px solid var(--line);border-radius:20px">管理后台</a>
+      <div class="badge"><span class="dot"></span><span id="badgeUp">已持续防护 —</span></div>
+      <div id="clock">--:--:--<small id="dateStr">----</small></div>
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="card" style="--c:#ff5d6c"><div class="ico">🛡</div><div><div class="v" id="c_today">0</div><div class="l">今日攻击</div></div></div>
+    <div class="card" style="--c:#ffb454"><div class="ico">⛔</div><div><div class="v" id="c_blocked">0</div><div class="l">累计拦截</div></div></div>
+    <div class="card" style="--c:#9d7bff"><div class="ico">⚔</div><div><div class="v" id="c_total">0</div><div class="l">攻击总数</div></div></div>
+    <div class="card" style="--c:#4da3ff"><div class="ico">🌐</div><div><div class="v" id="c_req">0</div><div class="l">请求总数</div></div></div>
+    <div class="card" style="--c:#35e0c8"><div class="ico">⚡</div><div><div class="v" id="c_qps">0</div><div class="l">实时 QPS</div></div></div>
+  </div>
+
+  <main>
+    <div class="col">
+      <div class="panel" style="flex:1.2">
+        <div class="panel-h">攻击类型分布<span class="more">ATTACK TYPES</span></div>
+        <div class="chart" id="typeChart"></div>
+      </div>
+      <div class="panel" style="flex:1">
+        <div class="panel-h">威胁等级分布<span class="more">SEVERITY</span></div>
+        <div class="chart" id="sevChart"></div>
+      </div>
+      <div class="panel" style="flex:.75">
+        <div class="panel-h">攻击源 TOP5<span class="more">TOP ATTACKERS</span></div>
+        <div class="topip" id="topIp"></div>
+      </div>
+    </div>
+
+    <div class="panel map-wrap" style="position:relative">
+      <div class="panel-h">全球攻击态势<span class="more">GLOBAL ATTACK MAP</span></div>
+      <div id="mapChart"></div>
+    </div>
+
+    <div class="panel" style="grid-column:3;grid-row:1">
+      <div class="panel-h">实时攻击流<span class="more">LIVE ATTACKS</span></div>
+      <div class="stream-head"><span>时间</span><span>类型</span><span>攻击 IP</span><span>来源</span><span>路径</span></div>
+      <ul class="stream" id="stream"></ul>
+    </div>
+
+    <div class="trend-wrap">
+      <div class="panel">
+        <div class="panel-h">24 小时攻击趋势<span class="more">HOURLY TREND · 柱=攻击 线=拦截</span></div>
+        <div id="trendChart"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">受攻击路径 TOP5<span class="more">TOP PATHS</span></div>
+        <div class="toplist" id="topPath"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">命中规则 TOP5<span class="more">TOP RULES</span></div>
+        <div class="toplist" id="topRule"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div>运行时长 <b id="uptime">—</b> · 数据每 10 秒刷新</div>
+    <div>壁垒WAF BileiWAF · 前置代理检测架构 · rules + AI 双引擎 · © 2026 内蒙古勤加软件有限公司</div>
+  </footer>
+</div>
+
+<script src="/assets/geo-cn.js"></script>
+<script src="/assets/echarts.min.js"></script>
+<script>
+"use strict";
+/* ---------------- 工具 ---------------- */
+const $ = id => document.getElementById(id);
+const TYPE_CN = {SQL_INJECTION:"SQL注入",XSS:"XSS攻击",CMD_INJECTION:"命令注入",PATH_TRAVERSAL:"路径穿越",
+  XXE:"XXE攻击",SSRF:"SSRF",FILE_UPLOAD:"文件上传",SCANNER:"扫描探测",CC:"CC攻击",UNKNOWN:"其他攻击"};
+const TYPE_COLOR = {SQL_INJECTION:"#ff5d6c",XSS:"#ffb454",CMD_INJECTION:"#ff8a5c",PATH_TRAVERSAL:"#9d7bff",
+  XXE:"#e06cff",SSRF:"#4da3ff",FILE_UPLOAD:"#f5d15c",SCANNER:"#35e0c8",CC:"#5cb8ff",UNKNOWN:"#7d8fa8"};
+const pad = n => String(n).padStart(2,"0");
+function tween(el, target, decimals){
+  const from = parseFloat((el.dataset.v||"0"))||0; el.dataset.v = target;
+  const t0 = performance.now(), dur = 800;
+  (function step(t){
+    const p = Math.min(1,(t-t0)/dur), e = 1-Math.pow(1-p,3);
+    const v = from + (target-from)*e;
+    el.textContent = decimals ? v.toFixed(decimals) : Math.round(v).toLocaleString("en-US");
+    if(p<1) requestAnimationFrame(step);
+  })(t0);
+}
+
+/* ---------------- 时钟 ---------------- */
+setInterval(()=>{ const d=new Date();
+  $("clock").firstChild.nodeValue = pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+  $("dateStr").textContent = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+
+    " 星期"+"日一二三四五六"[d.getDay()];
+},1000);
+
+/* ---------------- ECharts 公共 ---------------- */
+let charts = {};
+function mk(id){ if(typeof echarts==="undefined") return null;
+  const c = echarts.init($(id)); charts[id]=c; return c; }
+const AXIS = {axisLine:{lineStyle:{color:"#2a3f63"}},axisLabel:{color:"#7d8fa8",fontSize:10},
+  splitLine:{lineStyle:{color:"rgba(28,47,77,.55)"}}};
+window.addEventListener("resize",()=>Object.values(charts).forEach(c=>c.resize()));
+
+/* 类型 donut */
+function renderTypes(types){
+  const c = charts.typeChart; if(!c) return;
+  const data = types.map(t=>({name:TYPE_CN[t.name]||t.name, raw:t.name, value:t.count,
+    itemStyle:{color:TYPE_COLOR[t.name]||"#7d8fa8"}}));
+  c.setOption({
+    tooltip:{trigger:"item",backgroundColor:"#12233f",borderColor:"#1c2f4d",textStyle:{color:"#d8e4f5"},
+      formatter:p=>`${p.data.raw||p.name}<br/>攻击次数：<b style="color:#ff5d6c">${p.value}</b>（${p.percent}%）`},
+    legend:{orient:"vertical",right:6,top:"middle",icon:"circle",itemWidth:8,itemHeight:8,
+      textStyle:{color:"#a8bdd8",fontSize:11},formatter:n=>n},
+    series:[{type:"pie",radius:["52%","76%"],center:["36%","52%"],data,
+      label:{show:false},labelLine:{show:false},
+      itemStyle:{borderColor:"#0b1220",borderWidth:2}}],
+    graphic:[{type:"text",left:"27%",top:"46%",style:{text:String(types.reduce((a,t)=>a+t.count,0)),
+      fill:"#d8e4f5",fontSize:22,fontWeight:700,textAlign:"center"},
+      },{type:"text",left:"29%",top:"58%",style:{text:"总攻击",fill:"#7d8fa8",fontSize:11}}]
+  },true);
+}
+
+/* 严重度分布（旧后端无 severity 字段时降级） */
+function renderSev(sev){
+  const c = charts.sevChart; if(!c) return;
+  sev = sev || {high:0,mid:0,low:0};
+  const cats = ["高危","中危","低危"], vals = [sev.high,sev.mid,sev.low];
+  const total = vals.reduce((a,b)=>a+b,0)||1;
+  c.setOption({
+    grid:{left:14,right:52,top:14,bottom:6,containLabel:true},
+    xAxis:{type:"value",show:false},
+    yAxis:{type:"category",data:cats,inverse:true,
+      axisLine:{show:false},axisTick:{show:false},axisLabel:{color:"#a8bdd8",fontSize:12}},
+    series:[{type:"bar",data:vals.map((v,i)=>({value:v,
+        itemStyle:{borderRadius:5,color:[["#ff5d6c"],["#ffb454"],["#35e0c8"]][i][0]}})),
+      barWidth:12,
+      label:{show:true,position:"right",color:"#d8e4f5",fontSize:12,fontWeight:600,
+        formatter:p=>`${p.value}  (${Math.round(p.value/total*100)}%)`},
+      showBackground:true,backgroundStyle:{color:"rgba(28,47,77,.7)",borderRadius:5}}]
+  },true);
+}
+
+/* 24h 趋势 */
+function renderTrend(trend, blocked){
+  const c = charts.trendChart; if(!c) return;
+  const now = new Date(), labels=[];
+  for(let i=23;i>=0;i--){ const d=new Date(now-3600e3*i); labels.push(pad(d.getHours())+":00"); }
+  const series=[{name:"攻击数",type:"bar",data:trend,barWidth:"42%",
+    itemStyle:{borderRadius:[3,3,0,0],color:new echarts.graphic.LinearGradient(0,0,0,1,
+      [{offset:0,color:"#4da3ff"},{offset:1,color:"rgba(43,123,255,.15)"}])}},
+    {name:"拦截数",type:"line",data:blocked||null,smooth:true,symbol:"circle",symbolSize:5,
+      lineStyle:{color:"#ff5d6c",width:2},itemStyle:{color:"#ff5d6c"},
+      areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,
+      [{offset:0,color:"rgba(255,93,108,.25)"},{offset:1,color:"rgba(255,93,108,0)"}])}}];
+  c.setOption({
+    tooltip:{trigger:"axis",backgroundColor:"#12233f",borderColor:"#1c2f4d",textStyle:{color:"#d8e4f5"}},
+    legend:{top:4,right:10,textStyle:{color:"#7d8fa8",fontSize:11},itemWidth:14,itemHeight:8},
+    grid:{left:14,right:16,top:30,bottom:6,containLabel:true},
+    xAxis:Object.assign({type:"category",data:labels,boundaryGap:true},AXIS,
+      {axisLabel:{color:"#7d8fa8",fontSize:10,interval:2}}),
+    yAxis:Object.assign({type:"value",name:""},AXIS,{splitNumber:4}),
+    series},true);
+}
+
+/* TOP 路径 / 规则 列表 */
+function renderTopList(elId, rows, keyFn, ruleMode){
+  const el = $(elId); if(!el) return;
+  const max = Math.max(1,...rows.map(r=>r.count));
+  el.innerHTML = rows.map((r,i)=>
+    `<div class="row"><div class="k">${ruleMode?`<i>${pad(i+1)}</i>`:""}${escHtml(keyFn(r))}</div>
+     <div class="bar"><i style="width:${Math.max(4,r.count/max*100)}%"></i></div>
+     <div class="n">${r.count.toLocaleString("en-US")}</div></div>`).join("")
+    || `<div style="color:var(--muted);font-size:12px;padding:14px 2px">暂无数据</div>`;
+}
+function escHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+/* TOP IP 条（含来源） */
+function renderTopIp(rows){
+  const el=$("topIp"); if(!el) return;
+  const max = Math.max(1,...rows.map(r=>r.count));
+  el.innerHTML = rows.map(r=>{
+    const geo = fmtGeo(r.country, r.city);
+    return `<div class="row"><div class="ip" title="${escHtml(r.ip)}">${escHtml(r.ip)}</div>
+     <div class="geo" title="${escHtml(geo)}">${escHtml(geo)}</div>
+     <div class="bar"><i style="width:${Math.max(4,r.count/max*100)}%"></i></div>
+     <div class="n">${r.count.toLocaleString("en-US")}</div></div>`;
+  }).join("") || `<div style="color:var(--muted);font-size:12px;padding:12px 0">暂无攻击数据</div>`;
+}
+
+/* ---------------- 世界地图 + 攻击弧线（GeoIP 定位） ---------------- */
+let WORLD_CENTROIDS = {};   /* 中文国名 → [lng,lat]，由 world.json 几何计算，供无经纬度时降级打点 */
+let mapReady = false;
+const HOME = [116.405285, 39.904989];   /* 受保护站点（示例定位） */
+
+async function loadMap(){
+  if(typeof echarts==="undefined") return;
+  try{
+    const r = await fetch("/assets/world.json"); const geo = await r.json();
+    /* 国家名统一改为中文（geo-cn.js 映射表；未收录原样保留），悬停提示/区域匹配均使用中文名 */
+    const hasCn = typeof window.cnName === "function";
+    (geo.features||[]).forEach(f=>{
+      if(f.properties && f.properties.name && hasCn) f.properties.name = cnName(f.properties.name);
+    });
+    echarts.registerMap("world", geo);
+    WORLD_CENTROIDS = {};
+    (geo.features||[]).forEach(f=>{
+      const pr = f.properties||{}, nm = pr.name;
+      if(!nm) return;
+      let c = pr.centroid || pr.center;
+      if(!c && f.geometry && f.geometry.coordinates){
+        /* 兜底：遍历该国家几何坐标取粗略均值 */
+        let sx=0,sy=0,n=0;
+        const walk = a => Array.isArray(a[0]) ? a.forEach(walk) : (sx+=a[0],sy+=a[1],n++);
+        try{ walk(f.geometry.coordinates);}catch(e){}
+        if(n) c=[sx/n, sy/n];
+      }
+      if(c) WORLD_CENTROIDS[nm] = c;
+    });
+    mapReady = true;
+  }catch(e){ console.warn("世界地图加载失败", e); }
+}
+
+/* 攻击源坐标：优先 GeoIP 城市经纬度，缺失则回退国家质心（质心表键为中文国名） */
+function srcCoord(e){
+  if(e.lat && e.lon) return [e.lon, e.lat];
+  const c = WORLD_CENTROIDS[cnName(e.countryEn)];
+  return c || WORLD_CENTROIDS[e.country] || null;
+}
+
+/* 国家攻击强度 → 地图区域颜色（对数归一，避免大值全红） */
+function geoColor(v, max){
+  const t = Math.min(1, Math.log(v+1)/Math.log(max+1));
+  const stops = [[28,52,90],[90,52,90],[175,58,72],[255,93,108]];
+  const seg = Math.min(stops.length-1, Math.floor(t*(stops.length-1)));
+  const a = stops[seg], b = stops[Math.min(stops.length-1,seg+1)];
+  const k = t*(stops.length-1) - seg;
+  const mix = i => Math.round(a[i] + (b[i]-a[i])*k);
+  return `rgba(${mix(0)},${mix(1)},${mix(2)},.85)`;
+}
+
+function renderMap(agg){
+  const c = charts.mapChart; if(!c) return;
+  if(!mapReady){ setTimeout(()=>renderMap(agg), 800); return; }
+  const el = $("mapChart");
+  if(!el.clientWidth || !el.clientHeight){ setTimeout(()=>renderMap(agg), 500); return; }
+  try{
+    const points  = (agg && agg.points)  || [];
+    const countries = (agg && agg.countries) || {};
+    const lines = points.map(p=>({coords:[p.coord, HOME], value:p.count}));
+    const maxC = Math.max(1, ...Object.values(countries));
+    const regions = Object.entries(countries)
+      .filter(([nm])=>WORLD_CENTROIDS[nm])
+      .map(([nm,v])=>({name:nm, itemStyle:{areaColor:geoColor(v,maxC)}}));
+    const scatter = points.map(p=>({name:p.name, value:[p.coord[0], p.coord[1], p.count]}));
+    c.setOption({
+      tooltip:{trigger:"item",backgroundColor:"#12233f",borderColor:"#1c2f4d",textStyle:{color:"#d8e4f5"},
+        formatter:p=>p.seriesType==="lines"
+          ? `攻击弧线<br/>攻击源 → 受保护站点`
+          : `${p.name}<br/>攻击请求：<b style="color:#ffb454">${(p.value&&p.value[2])||0}</b>`},
+      geo:{map:"world",roam:false,zoom:1.15,top:30,bottom:6,
+        itemStyle:{areaColor:"rgba(28,52,90,.72)",borderColor:"#35507e",borderWidth:.6},
+        emphasis:{label:{show:false},itemStyle:{areaColor:"rgba(77,163,255,.4)"}},
+        regions},
+      series:[
+        {name:"攻击源",type:"effectScatter",coordinateSystem:"geo",data:scatter,
+         symbolSize:val=>4+Math.min(11,Math.sqrt(val[2])*2),
+         rippleEffect:{brushType:"stroke",scale:3.2},
+         itemStyle:{color:"#ffb454",shadowBlur:8,shadowColor:"#ffb454"}},
+        {name:"攻击弧线",type:"lines",coordinateSystem:"geo",data:lines,
+         effect:{show:true,period:4,trailLength:.35,symbol:"arrow",symbolSize:4,color:"#ff5d6c"},
+         lineStyle:{color:"#ff7a88",width:1,opacity:.26,curveness:.32}},
+        {name:"受保护站点",type:"effectScatter",coordinateSystem:"geo",
+         data:[{name:"受保护站点",value:HOME}],symbolSize:9,
+         rippleEffect:{brushType:"stroke",scale:4},
+         itemStyle:{color:"#35e0c8",shadowBlur:12,shadowColor:"#35e0c8"},
+         label:{show:true,position:"right",formatter:"受保护站点",color:"#35e0c8",fontSize:11},
+         tooltip:{formatter:"受保护站点<br/>壁垒WAF 防护中"}}
+      ]
+    },true);
+  }catch(e){ /* 0 尺寸初始化竞态：重建画布后下轮重试 */
+    try{ c.resize(); }catch(_){ }
+    setTimeout(()=>renderMap(agg), 600);
+  }
+}
+
+/* ---------------- 实时攻击流 ---------------- */
+const seenKeys = new Set();
+/* 后端 recent 为结构化对象；兼容旧版字符串条目 */
+function parseRecent(arr){
+  const out=[];
+  (arr||[]).forEach(raw=>{
+    let e;
+    if(raw && typeof raw==="object"){
+      e = {ts:raw.time||"", type:raw.type||"", ip:raw.ip||"", path:raw.path||"",
+           sev:raw.sev, country:raw.country||"", countryEn:raw.country_en||"",
+           code:raw.country_code||"", city:raw.city||"", lat:+raw.lat||0, lon:+raw.lon||0};
+    }else{
+      const s=String(raw||"");
+      const ts=(s.match(/^\[([^\]]+)\]/)||[])[1]||"";
+      const g=k=>{const m=s.match(new RegExp(k+":\\s*([^|\\r\\n]+)"));return m?m[1].trim():"";};
+      e={ts,type:g("Type"),ip:g("IP"),path:g("Path"),sev:g("Severity"),
+         country:"",countryEn:"",code:"",city:"",lat:0,lon:0};
+    }
+    if(!e.type) return;
+    const key = e.ts+"|"+e.type+"|"+e.ip+"|"+e.path;
+    if(seenKeys.has(key)) return;
+    seenKeys.add(key); if(seenKeys.size>4000) seenKeys.clear();
+    out.push(e);
+  });
+  return out;   /* 后端已最新在前 */
+}
+/* 来源文案：国家·城市（中英文混排时只显示国家，避免「美国·Monticello」这类突兀组合） */
+const hasCJK = s => /[\u4e00-\u9fff]/.test(s||"");
+function fmtGeo(country, city){
+  country = country||""; city = city||"";
+  if(country && city) return hasCJK(country)===hasCJK(city) ? country+"·"+city : country;
+  return country || city || "—";
+}
+function srcText(e){ return fmtGeo(e.country, e.city); }
+function renderStream(entries, first){
+  const ul=$("stream"); if(!ul) return;
+  const frag=document.createDocumentFragment();
+  entries.forEach((e,idx)=>{
+    const li=document.createElement("li");
+    const col = TYPE_COLOR[e.type]||"#7d8fa8";
+    const src = srcText(e);
+    li.innerHTML = `<span class="t">${escHtml((e.ts||"").split(" ")[1]||"--:--:--")}</span>
+      <span class="tag" style="color:${col};background:color-mix(in srgb,${col} 14%,transparent)"
+        title="${escHtml(TYPE_CN[e.type]||e.type)}">${escHtml(TYPE_CN[e.type]||e.type)}</span>
+      <span class="ipv" title="攻击 IP：${escHtml(e.ip||"—")}">${escHtml(e.ip||"—")}</span>
+      <span class="src" title="来源：${escHtml(src)}">${escHtml(src)}</span>
+      <span class="path" title="${escHtml(e.path)}">${escHtml(e.path)}</span>`;
+    if(!first && idx<3) li.classList.add("fresh");
+    frag.appendChild(li);
+  });
+  ul.insertBefore(frag, ul.firstChild);
+  while(ul.children.length>26) ul.removeChild(ul.lastChild);
+}
+
+/* ---------------- 运行时长 ---------------- */
+function fmtUptime(s){
+  if(!s||s<0) return "—";
+  const d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60);
+  return (d?d+" 天 ":"")+h+" 小时 "+m+" 分钟";
+}
+function fmtUptimeShort(s){
+  if(!s||s<0) return "—";
+  const d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60);
+  if(d) return d+" 天 "+h+" 小时";
+  if(h) return h+" 小时 "+m+" 分钟";
+  if(m) return m+" 分钟";
+  return Math.floor(s)+" 秒";
+}
+/* 「已持续防护」徽章 + 底部运行时长：取 overview 下发的数据平面持续时长，本地每秒自增 */
+let upBase=null, upAt=0;
+function setUpTime(s){
+  if(s===undefined||s===null||s<0) return;
+  upBase=+s; upAt=Date.now();
+  $("badgeUp").textContent="已持续防护 "+fmtUptimeShort(upBase);
+  $("uptime").textContent=fmtUptime(upBase);
+}
+setInterval(()=>{ if(upBase===null) return;
+  const cur=upBase+Math.floor((Date.now()-upAt)/1000);
+  $("badgeUp").textContent="已持续防护 "+fmtUptimeShort(cur);
+  $("uptime").textContent=fmtUptime(cur);
+},1000);
+/* ---------------- 数据轮询 ---------------- */
+let firstLoad = true;
+let lastData = null;
+/* 攻击弧线源聚合：recent 明细 + TOP IP 汇总 → {points:[{name,coord,count}], countries:{中文国名:count}} */
+function arcsFromData(d){
+  const points=[], countries={}, seen=new Set();
+  const addCountry = nm => { if(nm) countries[cnName(nm)]=(countries[cnName(nm)]||0)+1; };
+  (d.recent ? parseRecent(d.recent) : []).forEach(e=>{
+    addCountry(e.countryEn || e.country);
+    const c = srcCoord(e); if(!c) return;
+    const k = c[0].toFixed(1)+","+c[1].toFixed(1)+"|"+(e.city||e.countryEn||"");
+    if(seen.has(k)) return; seen.add(k);
+    points.push({name:e.city||e.country||e.countryEn||e.ip, coord:c, count:1});
+  });
+  (d.top_ips||[]).forEach(t=>{
+    const nm = cnName(t.country_en || t.country || "");
+    if(nm) countries[nm]=(countries[nm]||0)+(t.count||0);
+    const c = (t.lat && t.lon) ? [t.lon,t.lat] : WORLD_CENTROIDS[cnName(t.country_en)] || WORLD_CENTROIDS[t.country];
+    if(!c) return;
+    const k = c[0].toFixed(1)+","+c[1].toFixed(1)+"|"+nm;
+    if(seen.has(k)) return; seen.add(k);
+    points.push({name:t.city||t.country||t.country_en||t.ip, coord:c, count:t.count||1});
+  });
+  return {points, countries};
+}
+async function refresh(){
+  try{
+    const r = await fetch("/api/admin/overview");
+    /* 大屏需登录：会话失效/未登录时跳管理后台登录页 */
+    if(r.status===401){ location.replace("/admin"); return; }
+    const j = await r.json();
+    if(!j || !j.success) return;
+    const d = j.data;
+    lastData = d;
+    setUpTime(d.uptime_sec);
+    tween($("c_today"), d.attacks ? (d.attacks.today||0) : 0);
+    tween($("c_blocked"), d.attacks ? (d.attacks.blocked||0) : 0);
+    tween($("c_total"), d.attacks ? (d.attacks.total||0) : 0);
+    tween($("c_req"), d.requests ? (d.requests.total||0) : 0);
+    tween($("c_qps"), d.qps_5min!==undefined ? +d.qps_5min : 0, 1);
+    renderTypes(d.types||[]);
+    renderSev(d.severity);                       /* 旧后端缺字段时按全 0 展示 */
+    renderTrend(d.trend24h||[], d.trend24h_blocked);
+    renderTopIp(d.top_ips||[]);
+    renderTopList("topPath", d.top_paths||[], r=>r.path, false);
+    renderTopList("topRule", d.top_rules||[], r=>r.rule, true);
+    /* 后端已无攻击记录（如日志清空）时同步清空攻击流展示 */
+    if((d.recent||[]).length===0){ const ul=$("stream"); if(ul) ul.innerHTML=""; }
+    else renderStream(parseRecent(d.recent), firstLoad);
+    renderMap(arcsFromData(d));
+    firstLoad = false;
+  }catch(e){ console.warn("overview 刷新失败", e); }
+}
+
+/* ---------------- 启动 ----------------
+ * ResizeObserver 驱动的图表初始化：容器获得真实尺寸后才 echarts.init，
+ * 根治首帧 0×0 zlevel 分层画布导致的 drawImage InvalidStateError / 地图永久空白 */
+(function init(){
+  const renderOne = id => {
+    if(!lastData) return;
+    if(id==="typeChart") renderTypes(lastData.types||[]);
+    else if(id==="sevChart") renderSev(lastData.severity);
+    else if(id==="trendChart") renderTrend(lastData.trend24h||[], lastData.trend24h_blocked);
+    else if(id==="mapChart" && mapReady) renderMap(arcsFromData(lastData));
+  };
+  const ro = new ResizeObserver(es=>{
+    es.forEach(en=>{
+      const id = en.target.id;
+      if(en.contentRect.width > 2 && en.contentRect.height > 2){
+        if(!charts[id]){
+          if(mk(id)) renderOne(id);
+        }else{
+          try{ charts[id].resize(); }catch(_e){}
+        }
+      }
+    });
+  });
+  ["typeChart","sevChart","trendChart","mapChart"].forEach(id=>{
+    const el = $(id); if(el) ro.observe(el);
+  });
+  loadMap();
+  refresh();
+  setInterval(refresh, 10000);
+  /* 角色显隐：monitor（监控人员）仅可访问监控大屏，隐藏“管理后台”入口 */
+  fetch("/api/admin/session").then(r=>r.json()).then(j=>{
+    if(j && j.authenticated && j.role && j.role!=="admin"){
+      const a=document.getElementById("lnk_admin"); if(a) a.style.display="none";
+    }
+  }).catch(()=>{});
+})();
+</script>
+</body>
+</html>

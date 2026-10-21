@@ -1,0 +1,41 @@
+XSS,<script src,5,block,Script tag with src
+XSS,</script,5,block,Script closing tag
+XSS,vbscript:,5,block,Vbscript URI
+XSS,data\s*:\s*(text\/html|image\/[a-zA-Z0-9+]+),5,block,Data URI
+XSS,onerror\s*=\s*["']?[^\s>&()]*\(,5,block,Onerror event
+XSS,onload\s*=\s*["']?[^\s>&()]*\(,5,block,Onload event
+XSS,onclick\s*=\s*["']?[^\s>&()]*\(,5,block,Onclick event
+XSS,onmouseover\s*=\s*["']?[^\s>&()]*\(,5,block,Onmouseover event
+XSS,document\.cookie,5,block,Document cookie access
+XSS,document\.write,5,block,Document write
+XSS,window\.location,5,block,Window location
+XSS,window\.open,5,block,Window open
+XSS,eval\(\),5,block,Eval function
+XSS,alert\(\),5,block,Alert function
+XSS,javascript\s*:\s*(alert|prompt|confirm|eval|print|fetch|document\.|window\.),5,block,Javascript pseudo protocol
+XSS,vbscript\s*:,5,block,Vbscript pseudo protocol
+XSS,<iframe,5,block,Iframe tag
+XSS,<object,5,block,Object tag
+XSS,<embed,5,block,Embed tag
+XSS,<applet,5,block,Applet tag
+XSS,<svg,5,block,SVG tag
+XSS,<canvas,5,block,Canvas tag
+XSS,<form,5,block,Form tag
+XSS,<input,5,block,Input tag
+XSS,<textarea,5,block,Textarea tag
+XSS,innerHTML,5,block,InnerHTML
+XSS,outerHTML,5,block,OuterHTML
+XSS,setTimeout\(.*eval,5,block,SetTimeout with eval
+XSS,setInterval\(.*eval,5,block,SetInterval with eval
+XSS,new\s+Function,5,block,New Function constructor
+XSS,String\.fromCharCode,5,block,String fromCharCode
+XSS,atob\(,5,block,Atob function
+XSS,btoa\(,5,block,Btoa function
+XSS,unescape\(,5,block,Unescape function
+XSS,escape\(,5,block,Escape function
+XSS,decodeURI,5,block,Decode URI
+XSS,decodeURIComponent,5,block,Decode URI componentXSS,<SCRIPT[^>]*>,5,block,Script tag uppercase
+XSS,</SCRIPT>,5,block,Close script tag uppercase
+XSS,(alert|prompt|confirm)\s*\.\s*(call|apply)\s*\(,5,block,Dialog call apply
+XSS,<base[^>]*href\s*=\s*["']?javascript:,5,block,Base href javascript URI
+XSS,\+ADw[-+],5,block,UTF-7 encoded script marker

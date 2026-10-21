@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>壁垒WAF - 专业Web应用防火墙 | 网站安全防护</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.85);
+  --line:#1c2f4d; --ink:#d8e4f5; --muted:#7d8fa8;
+  --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c; --orange:#ffb454; --purple:#9d7bff;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Helvetica Neue",sans-serif;
+  color:var(--ink);background:var(--bg);line-height:1.7;
+  background-image:
+    radial-gradient(1200px 500px at 50% -10%, rgba(77,163,255,.10), transparent 60%),
+    radial-gradient(900px 420px at 100% 110%, rgba(53,224,200,.06), transparent 60%),
+    radial-gradient(900px 420px at 0% 110%, rgba(157,123,255,.05), transparent 60%);
+  background-attachment:fixed;
+}
+a{text-decoration:none;color:inherit}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+/* 顶栏 */
+.nav{position:sticky;top:0;z-index:100;background:rgba(11,18,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;height:72px}
+.logo{display:flex;align-items:center;gap:12px;font-size:20px;font-weight:700}
+.logo img{width:200px;height:200px;object-fit:contain}
+.logo small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:2px;margin-left:2px}
+.nav-links{margin-left:auto;display:flex;gap:6px;align-items:center}
+.nav-links a{padding:7px 14px;border-radius:8px;font-size:14px;color:var(--muted);transition:.2s}
+.nav-links a:hover{color:var(--cyan);background:rgba(53,224,200,.08)}
+.nav-links .cta{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff!important;font-weight:600}
+.nav-links .cta:hover{filter:brightness(1.15)}
+/* Hero */
+.hero{padding:96px 0 76px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-140px;top:-140px;width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle,rgba(77,163,255,.14),transparent 65%)}
+.hero-tag{display:inline-block;padding:5px 16px;border:1px solid rgba(53,224,200,.4);background:rgba(53,224,200,.08);
+  color:var(--cyan);border-radius:999px;font-size:13px;letter-spacing:2px;margin-bottom:22px}
+.hero h1{font-size:46px;line-height:1.28;letter-spacing:1px;
+  background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 em{font-style:normal;color:var(--cyan);-webkit-text-fill-color:var(--cyan)}
+.hero p.sub{font-size:17px;color:var(--muted);margin:20px 0 36px;max-width:660px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 30px;border-radius:10px;font-size:15px;font-weight:600;transition:.2s;border:1px solid transparent;cursor:pointer}
+.btn-p{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff;box-shadow:0 8px 22px rgba(37,99,235,.35)}
+.btn-p:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.btn-o{border-color:rgba(53,224,200,.4);color:var(--cyan);background:rgba(53,224,200,.06);margin-left:12px}
+.btn-o:hover{background:rgba(53,224,200,.12)}
+.hero-stats{display:flex;gap:44px;margin-top:54px;flex-wrap:wrap}
+.hstat b{display:block;font-size:26px;color:var(--cyan)}
+.hstat span{font-size:13px;color:var(--muted)}
+/* 通用 section */
+section{padding:72px 0}
+.sec-head{text-align:center;margin-bottom:46px}
+.sec-head .kicker{color:var(--cyan);font-size:13px;font-weight:700;letter-spacing:3px}
+.sec-head h2{font-size:32px;margin:8px 0 10px}
+.sec-head p{color:var(--muted);max-width:720px;margin:0 auto}
+/* 卖点 */
+.feat4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.fcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px 22px;transition:.25s}
+.fcard:hover{transform:translateY(-4px);box-shadow:0 14px 34px rgba(0,0,0,.35);border-color:rgba(53,224,200,.4)}
+.fcard .ic{width:46px;height:46px;border-radius:12px;background:rgba(53,224,200,.12);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px}
+.fcard h3{font-size:16px;margin-bottom:8px}
+.fcard p{font-size:13px;color:var(--muted)}
+/* 简介 */
+.intro{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:44px;display:flex;gap:40px;align-items:center}
+.intro-txt{flex:1.2}
+.intro-txt h3{font-size:24px;margin-bottom:14px}
+.intro-txt p{color:var(--muted);font-size:14.5px}
+.intro-flow{flex:1;display:flex;flex-direction:column;gap:10px}
+.flow-row{display:flex;align-items:center;gap:10px}
+.flow-node{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:600}
+.flow-node.waf{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff;border:none;box-shadow:0 8px 20px rgba(37,99,235,.4)}
+.flow-arrow{text-align:center;color:var(--cyan);font-size:18px;line-height:1}
+.flow-note{font-size:12px;color:var(--muted);text-align:center}
+/* 优势 */
+.adv{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.acard{border-radius:14px;padding:28px;border:1px solid var(--line);background:var(--panel)}
+.acard h3{font-size:17px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.acard h3::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--cyan)}
+.acard p{font-size:13.5px;color:var(--muted)}
+/* 能力矩阵 */
+.matrix{background:rgba(13,25,46,.5)}
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.mitem{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.mitem b{display:block;font-size:14px;margin-bottom:5px}
+.mitem span{font-size:12px;color:var(--muted)}
+.mitem .tag{display:inline-block;font-size:11px;color:var(--cyan);background:rgba(53,224,200,.1);border-radius:4px;padding:1px 7px;margin-top:8px}
+/* 场景 */
+.scene{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.scard{display:flex;gap:16px;padding:26px;border-radius:14px;border:1px solid var(--line);background:var(--panel)}
+.scard .ic{font-size:30px}
+.scard h3{font-size:16px;margin-bottom:6px}
+.scard p{font-size:13px;color:var(--muted)}
+/* CTA */
+.cta-band{background:linear-gradient(120deg,rgba(8,145,178,.35),rgba(37,99,235,.3));border:1px solid rgba(53,224,200,.35);
+  border-radius:20px;padding:52px;text-align:center}
+.cta-band h2{font-size:28px;margin-bottom:10px}
+.cta-band p{color:var(--muted);margin-bottom:26px}
+.cta-band .btn{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff}
+.cta-band .btn-o{background:transparent}
+/* 页脚 */
+footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:13px}
+.foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.foot b{color:var(--ink)}
+@media(max-width:900px){.feat4,.mgrid{grid-template-columns:repeat(2,1fr)}.adv,.scene{grid-template-columns:1fr}.intro{flex-direction:column}.hero h1{font-size:34px}.hero-stats{flex-wrap:wrap;gap:22px}}
+</style>
+</head>
+<body>
+
+<nav class="nav"><div class="wrap nav-in">
+  <a class="logo" href="/"><img src="/images/bileiwaf_logo.png" alt="壁垒WAF"></a>
+  <div class="nav-links">
+    <a href="#features">产品功能</a>
+    <a href="#arch">产品架构</a>
+    <a href="#scenes">应用场景</a>
+    <a href="/screen.html">大屏演示</a>
+    <a href="/report.html">测试报告</a>
+    <a class="cta" href="/demo">攻防演示</a>
+  </div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <span class="hero-tag">反向代理架构 · 规则引擎 + AI 双引擎检测</span>
+  <h1>专业、稳定的 <em>Web 应用防火墙</em><br>一体化应用安全防护方案</h1>
+  <p class="sub">对网站与 App 业务流量进行恶意特征识别与防护，清洗过滤后将正常、安全的流量返回给源站，避免服务器被恶意入侵，保障业务安全与数据安全。</p>
+  <a class="btn btn-p" href="/demo">在线攻防演示 →</a>
+  <a class="btn btn-o" href="/screen.html">监控大屏演示</a>
+  <div class="hero-stats">
+    <div class="hstat"><b>99.90%</b><span>blazehttp 测评综合准确率</span></div>
+    <div class="hstat"><b>8 类</b><span>Web 攻击检测规则引擎</span></div>
+    <div class="hstat"><b>毫秒级</b><span>规则预筛 + AI 双通道检测</span></div>
+    <div class="hstat"><b>C 语言</b><span>多线程高性能内核</span></div>
+  </div>
+</div></header>
+
+<section id="features"><div class="wrap">
+  <div class="sec-head"><div class="kicker">CORE CAPABILITIES</div><h2>核心能力</h2><p>从流量清洗到访问控制，一站式覆盖 Web 应用安全防护需求</p></div>
+  <div class="feat4">
+    <div class="fcard"><div class="ic">🛡️</div><h3>多重防护</h3><p>支持 SQL 注入、XSS、命令注入、路径穿越、XXE、SSRF、恶意文件上传等 Web 攻击防护，内置扫描器识别与 CC 攻击限流。</p></div>
+    <div class="fcard"><div class="ic">🌐</div><h3>场景覆盖</h3><p>反向代理前置部署，支持多站点统一接入，HTTP / HTTPS 双栈监听，裸机与 Docker 全环境交付。</p></div>
+    <div class="fcard"><div class="ic">⚡</div><h3>稳定可靠</h3><p>C 语言多线程任务队列内核，规则缓存 + 快速特征预筛两级加速，单机高并发下保持毫秒级检测时延。</p></div>
+    <div class="fcard"><div class="ic">📋</div><h3>安全合规</h3><p>满足漏洞攻击防护、访问控制（IP 黑白名单）、攻击审计日志等合规要求，支持等保测评能力项。</p></div>
+  </div>
+</div></section>
+
+<section style="padding-top:0"><div class="wrap">
+  <div class="intro">
+    <div class="intro-txt">
+      <h3>产品简介</h3>
+      <p>壁垒WAF（BILEI Web Application Firewall）部署于业务流量入口，对全部入站请求进行深度检测：先经快速特征预筛剔除正常流量，再命中规则引擎与 AI 双通道完成攻击判定，恶意请求实时阻断并记录审计日志，正常请求透明转发至后端源站。</p>
+      <p style="margin-top:10px">支持检测模式（仅告警）与阻断模式灵活切换，防护策略按站点粒度独立配置，业务零侵入接入。</p>
+    </div>
+    <div class="intro-flow" id="arch">
+      <div class="flow-row"><div class="flow-node">客户端 / 攻击者</div></div>
+      <div class="flow-arrow">↓ 全量流量</div>
+      <div class="flow-row"><div class="flow-node waf">壁垒WAF 检测引擎（前置代理）</div></div>
+      <div class="flow-arrow">↓ 安全流量　✕ 恶意流量阻断</div>
+      <div class="flow-row"><div class="flow-node">后端源站（业务服务器）</div></div>
+      <div class="flow-note">WAF 前置部署 · 源站仅监听本机回环 · 攻击无法绕过</div>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><div class="kicker">WHY BILEI</div><h2>产品优势</h2></div>
+  <div class="adv">
+    <div class="acard"><h3>一站式 Web 安全防护</h3><p>集 Web 攻击防护、扫描器识别、CC 限流、IP 黑白名单、HTTPS 终结于一体，监控大屏统一运维，攻击态势实时呈现。</p></div>
+    <div class="acard"><h3>规则 + AI 双引擎</h3><p>规则引擎权威判定，char-CNN 蒸馏 + 自编码器双通道 AI 补盲，护栏自学习持续收敛漏报，blazehttp 实测准确率 99.90%。</p></div>
+    <div class="acard"><h3>防护能力积累深厚</h3><p>自研规则引擎覆盖 OWASP Top 10 攻击类型，规则文件热加载，白名单前缀匹配防绕过，检测动作秒级生效。</p></div>
+  </div>
+</div></section>
+
+<section class="matrix"><div class="wrap">
+  <div class="sec-head"><div class="kicker">PROTECTION MATRIX</div><h2>防护能力矩阵</h2><p>以下能力均可前往「攻防演示」页面在线验证</p></div>
+  <div class="mgrid">
+    <div class="mitem"><b>SQL 注入防护</b><span>联合查询、盲注、报错注入等特征识别</span><span class="tag">rules + AI</span></div>
+    <div class="mitem"><b>XSS 跨站防护</b><span>脚本标签、事件处理、编码混淆检测</span><span class="tag">rules + AI</span></div>
+    <div class="mitem"><b>命令注入防护</b><span>管道符、反引号、危险命令特征</span><span class="tag">rules + AI</span></div>
+    <div class="mitem"><b>路径穿越防护</b><span>../ 与多重编码变体归一化检测</span><span class="tag">rules 引擎</span></div>
+    <div class="mitem"><b>XXE / SSRF 防护</b><span>外部实体声明、内网协议跳转识别</span><span class="tag">rules 引擎</span></div>
+    <div class="mitem"><b>恶意文件上传</b><span>WebShell 后缀与 Content-Disposition 检测</span><span class="tag">rules 引擎</span></div>
+    <div class="mitem"><b>扫描器识别</b><span>sqlmap / nikto / nessus 等指纹 UA 拦截</span><span class="tag">指纹库</span></div>
+    <div class="mitem"><b>CC 攻击限流</b><span>滑动窗口计数 + 人机验证，超限自动封禁</span><span class="tag">限流引擎</span></div>
+  </div>
+</div></section>
+
+<section id="scenes"><div class="wrap">
+  <div class="sec-head"><div class="kicker">SCENARIOS</div><h2>应用场景</h2></div>
+  <div class="scene">
+    <div class="scard"><div class="ic">☁️</div><div><h3>Web 应用上线必备安全能力</h3><p>为网站、H5、APP、小程序提供 0day 漏洞自动防护，无需人工打补丁，有效降低入侵、挂马、篡改、数据泄露风险。</p></div></div>
+    <div class="scard"><div class="ic">🏢</div><div><h3>多站点统一防护</h3><p>单实例接入多个业务站点，按域名独立回源、独立策略，适合企业官网群、业务中台统一安全收口。</p></div></div>
+    <div class="scard"><div class="ic">🚫</div><div><h3>防爬虫防薅羊毛</h3><p>扫描器指纹识别 + CC 限流双引擎，拦截自动化工具批量请求，保障营销活动与接口资源不被滥用。</p></div></div>
+    <div class="scard"><div class="ic">✅</div><div><h3>安全合规建设</h3><p>攻击防护、访问控制、审计日志为等级保护等合规认证提供必备能力项，安全报表支撑攻防复盘与溯源分析。</p></div></div>
+  </div>
+</div></section>
+
+<section style="padding-top:0"><div class="wrap">
+  <div class="cta-band">
+    <h2>立即体验壁垒WAF</h2>
+    <p>在演示站点发起模拟攻击，实时验证 SQL 注入、XSS、路径穿越等攻击的防护效果</p>
+    <a class="btn" href="/demo">攻防演示</a>
+    <a class="btn btn-o" href="/report.html">查看测试报告</a>
+  </div>
+</div></section>
+
+<footer><div class="wrap foot">
+  <div><b>壁垒WAF</b> · BILEI Web Application Firewall</div>
+  <div>反向代理架构 · 规则 + AI 双引擎 · CC 防护 · HTTPS 终结 · 多站点接入</div>
+  <div>演示环境 · 仅供产品功能体验</div>
+  <div>© 2026 内蒙古勤加软件有限公司 · 版权所有</div>
+</div></footer>
+
+</body>
+</html>

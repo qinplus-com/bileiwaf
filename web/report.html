@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>壁垒WAF v1.0 · 检测能力验证报告</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.85);
+  --line:#1c2f4d; --ink:#d8e4f5; --muted:#7d8fa8;
+  --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c; --orange:#ffb454; --purple:#9d7bff;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); line-height:1.7;
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
+  background-image:
+    radial-gradient(1200px 500px at 50% -10%, rgba(77,163,255,.10), transparent 60%),
+    radial-gradient(900px 420px at 100% 110%, rgba(53,224,200,.06), transparent 60%);
+  background-attachment:fixed;
+}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px 60px}
+/* 顶栏 */
+.nav{position:sticky;top:0;z-index:100;background:rgba(11,18,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;height:64px;max-width:1160px;margin:0 auto;padding:0 24px}
+.logo{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;color:var(--ink);text-decoration:none}
+.logo img{width:200px;height:200px;object-fit:contain}
+.logo small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:2px}
+.nav-links{margin-left:auto;display:flex;gap:6px;align-items:center}
+.nav-links a{padding:7px 14px;border-radius:8px;font-size:14px;color:var(--muted);text-decoration:none;transition:.2s}
+.nav-links a:hover{color:var(--cyan);background:rgba(53,224,200,.08)}
+/* 头部 */
+header.rp{padding:56px 0 34px;text-align:center}
+.rp-tag{display:inline-block;padding:5px 16px;border:1px solid rgba(53,224,200,.4);border-radius:999px;
+  color:var(--cyan);font-size:13px;letter-spacing:2px;background:rgba(53,224,200,.08);margin-bottom:18px}
+.rp h1{font-size:38px;letter-spacing:2px;
+  background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rp p.sub{color:var(--muted);margin-top:12px;font-size:15px}
+.meta{display:flex;justify-content:center;gap:26px;margin-top:22px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.meta b{color:var(--ink)}
+/* 统计卡 */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:8px 0 10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:18%;bottom:18%;width:3px;border-radius:3px;background:var(--c,#4da3ff)}
+.card .v{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--c,#4da3ff);line-height:1.15}
+.card .l{font-size:12px;color:var(--muted);letter-spacing:2px;margin-top:4px}
+/* 区块 */
+section{margin-top:44px}
+.sec-h{display:flex;align-items:center;font-size:20px;font-weight:700;letter-spacing:2px;margin-bottom:8px}
+.sec-h::before{content:"";width:4px;height:18px;border-radius:2px;background:var(--cyan);margin-right:10px}
+.sec-h .en{margin-left:10px;font-size:11px;color:var(--muted);letter-spacing:2px;font-weight:400}
+.sec-p{color:var(--muted);font-size:14px;margin-bottom:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+.chart{height:340px}
+.chart-sm{height:300px}
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:600;letter-spacing:1px;font-size:12px;background:rgba(13,25,46,.5)}
+td.num{font-variant-numeric:tabular-nums}
+tr:hover td{background:rgba(77,163,255,.05)}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.ok{color:var(--cyan);background:rgba(53,224,200,.12)}
+.pill.warn{color:var(--orange);background:rgba(255,180,84,.12)}
+.pill.bad{color:var(--red);background:rgba(255,93,108,.12)}
+.hl{color:var(--cyan);font-weight:700}
+/* 两栏 */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+/* 代码 */
+code{font-family:Consolas,"JetBrains Mono",monospace;background:rgba(13,25,46,.8);border:1px solid var(--line);
+  border-radius:5px;padding:1px 7px;font-size:12.5px;color:#a5c3e8}
+/* 结论 */
+.conclusion{background:linear-gradient(120deg,rgba(53,224,200,.10),rgba(77,163,255,.08));
+  border:1px solid rgba(53,224,200,.35);border-radius:12px;padding:26px 28px}
+.conclusion h3{color:var(--cyan);margin-bottom:10px;letter-spacing:2px}
+.conclusion ul{margin-left:20px;color:var(--ink);font-size:14.5px}
+.conclusion li{margin:6px 0}
+footer{margin-top:50px;border-top:1px solid var(--line);padding-top:18px;text-align:center;color:var(--muted);font-size:12.5px;letter-spacing:1px}
+@media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}.rp h1{font-size:28px}}
+</style>
+</head>
+<body>
+
+<nav class="nav"><div class="nav-in">
+  <a class="logo" href="/"><img src="/images/bileiwaf_logo.png" alt="壁垒WAF"></a>
+  <div class="nav-links">
+    <a href="/">网站首页</a>
+    <a href="/demo">攻防演示</a>
+    <a href="/screen.html">大屏演示</a>
+    <a href="/report.html" style="color:var(--cyan)">测试报告</a>
+  </div>
+</div></nav>
+
+<div class="wrap">
+
+<header class="rp">
+  <span class="rp-tag">blazehttp 公开测评 · 全量真实语料回放</span>
+  <h1>壁垒WAF v1.0 检测能力验证报告</h1>
+  <p class="sub">三模式（rules / ai / auto）检测效果 · 主流 WAF 公开基线对比 · AI 双通道架构验证</p>
+  <div class="meta">
+    <span>报告日期 <b>2026-10-18</b></span>
+    <span>软件版本 <b>v1.0</b></span>
+    <span>测评工具 <b>blazehttp</b></span>
+    <span>语料规模 <b>黑样本 658 · 白样本 33,219</b></span>
+  </div>
+</header>
+
+<div class="cards">
+  <div class="card" style="--c:#35e0c8"><div class="v">99.903%</div><div class="l">综合准确率（auto 模式）</div></div>
+  <div class="card" style="--c:#4da3ff"><div class="v">99.70%</div><div class="l">检出率（auto 模式）</div></div>
+  <div class="card" style="--c:#ffb454"><div class="v">0.09%</div><div class="l">误报率（auto 模式）</div></div>
+  <div class="card" style="--c:#9d7bff"><div class="v">5,759</div><div class="l">HTTP 短连接 QPS</div></div>
+</div>
+
+<section>
+  <div class="sec-h">测评方法<span class="en">METHODOLOGY</span></div>
+  <p class="sec-p">
+    采用公开 WAF 测评工具 <code>blazehttp</code> 的真实 HTTP 语料全量回放：黑样本（攻击载荷）658 条、白样本（正常业务请求）33,219 条，
+    经 raw socket 以 30 线程并发发送至被测 WAF 监听端口。判定口径：黑样本未返回 <code>403</code> 记为漏报（FN），
+    白样本被拦截为 <code>403</code> 记为误报（FP）。压测客户端 IP 已加入 WAF 白名单，避免 CC 防护干扰测评结果。
+  </p>
+  <div class="panel">
+    <table>
+      <tr><th>指标</th><th>计算方式</th><th>含义</th></tr>
+      <tr><td>检出率</td><td class="num">(658 − FN) / 658</td><td>攻击样本被成功拦截的比例，越高越好</td></tr>
+      <tr><td>误报率</td><td class="num">FP / 33,219</td><td>正常请求被错误拦截的比例，越低越好</td></tr>
+      <tr><td>综合准确率</td><td class="num">1 − (FN + FP) / 33,877</td><td>全部样本判定正确的比例</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h">三模式检测结果<span class="en">THREE DETECTION MODES</span></div>
+  <p class="sec-p">
+    v1.0 支持三种检测模式：<code>rules</code> 纯规则引擎（生产默认基线）、<code>ai</code> 纯 AI 集成（CNN+AE 双通道融合）、
+    <code>auto</code> AI 先判 + 规则级联（推荐）。auto 模式下 AI 成功补拦 <span class="hl">11 个规则引擎漏检样本</span>，
+    将漏报从 13 降至 2，且不引入新增误报。
+  </p>
+  <div class="cols">
+    <div class="panel"><div class="chart-sm" id="modeChart"></div></div>
+    <div class="panel">
+      <table>
+        <tr><th>检测模式</th><th>漏报 FN</th><th>误报 FP</th><th>检出率</th><th>误报率</th><th>准确率</th></tr>
+        <tr><td><code>rules</code> 纯规则</td><td class="num">13</td><td class="num">31</td><td class="num">98.02%</td><td class="num">0.09%</td><td class="num">99.870%</td></tr>
+        <tr><td><code>auto</code> AI+规则级联</td><td class="num" style="color:var(--cyan)"><b>2</b></td><td class="num">31</td><td class="num" style="color:var(--cyan)"><b>99.70%</b></td><td class="num">0.09%</td><td class="num" style="color:var(--cyan)"><b>99.903%</b></td></tr>
+        <tr><td><code>ai</code> 纯 AI 集成</td><td class="num">41</td><td class="num" style="color:var(--cyan)"><b>0</b></td><td class="num">93.77%</td><td class="num" style="color:var(--cyan)"><b>0.00%</b></td><td class="num">99.879%</td></tr>
+      </table>
+      <p style="margin-top:14px;font-size:13px;color:var(--muted)">
+        纯 AI 模式误报为 0 但漏报偏高——蒸馏模型以规则为监督信号，定位为规则引擎的<strong>增强补充</strong>而非替代；
+        <code>auto</code> 级联组合兼顾两者优势，为生产推荐配置。
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h">主流 WAF 公开基线对比<span class="en">BASELINE COMPARISON</span></div>
+  <p class="sec-p">
+    对比数据取自 blazehttp 官方 README 公开基线（相同样本集 33,669 条）与本次实测。
+    壁垒WAF（auto 模式）在检出率、误报率、综合准确率三项指标上全面领先。
+  </p>
+  <div class="panel"><div class="chart" id="benchChart"></div></div>
+  <div class="panel" style="margin-top:14px">
+    <table>
+      <tr><th>WAF 产品 / 模式</th><th>检出率</th><th>误报率</th><th>综合准确率</th><th>评价</th></tr>
+      <tr><td>CloudFlare（免费版）</td><td class="num">10.70%</td><td class="num">0.07%</td><td class="num">98.40%</td><td><span class="pill bad">检出极低</span></td></tr>
+      <tr><td>ModSecurity（PL1 平衡）</td><td class="num">69.74%</td><td class="num">17.58%</td><td class="num">82.20%</td><td><span class="pill bad">误报严重</span></td></tr>
+      <tr><td>ModSecurity（PL4 严格）</td><td class="num">94.61%</td><td class="num">52.46%</td><td class="num">48.34%</td><td><span class="pill bad">误报过半</span></td></tr>
+      <tr><td><b>壁垒WAF v1.0（rules）</b></td><td class="num"><b>98.02%</b></td><td class="num"><b>0.09%</b></td><td class="num"><b>99.87%</b></td><td><span class="pill ok">三项领先</span></td></tr>
+      <tr><td><b>壁垒WAF v1.0（auto）</b></td><td class="num hl"><b>99.70%</b></td><td class="num hl"><b>0.09%</b></td><td class="num hl"><b>99.90%</b></td><td><span class="pill ok">最优</span></td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h">AI 双通道增强分析<span class="en">AI DUAL-CHANNEL</span></div>
+  <p class="sec-p">
+    AI 通道采用 char-CNN 蒸馏 + 自编码器（AE）自监督双通道融合架构：CNN 通道学习规则引擎的判定边界覆盖已知攻击，
+    AE 通道仅学习白流量正常特征、对未见过的 0day 载荷给出异常分。融合校准（blazehttp 全量语料）结果
+    <code>w_cnn=1.00 / w_ae=0.00 / 阈值 0.9947</code>。
+  </p>
+  <div class="cols">
+    <div class="panel">
+      <h3 style="font-size:15px;margin-bottom:10px;letter-spacing:1px">AI 补拦的 11 个规则漏检样本</h3>
+      <table>
+        <tr><th>攻击类型</th><th>数量</th></tr>
+        <tr><td>多层 Base64 编码混淆注入</td><td class="num">3</td></tr>
+        <tr><td>Body 深度特征载荷</td><td class="num">2</td></tr>
+        <tr><td>Apache Druid sampler RCE</td><td class="num">1</td></tr>
+        <tr><td>Jenkins Groovy 控制台 RCE</td><td class="num">1</td></tr>
+        <tr><td>Graphite 命令注入</td><td class="num">1</td></tr>
+        <tr><td>CRLF 响应拆分注入</td><td class="num">1</td></tr>
+        <tr><td>超长参数异常</td><td class="num">1</td></tr>
+        <tr><td>异常 HTTP 方法</td><td class="num">1</td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <h3 style="font-size:15px;margin-bottom:10px;letter-spacing:1px">auto 模式残余漏报（2 个）</h3>
+      <table>
+        <tr><th>样本</th><th>原因分析</th></tr>
+        <tr><td><code>POST /uc/feedback/api/v1/pc/feedback/add</code></td><td>载荷与正常反馈接口报文高度同构，规则与 AI 置信均未达阈值</td></tr>
+        <tr><td><code>POST /context.json</code></td><td>JSON 结构伪装度高，特征与业务接口重叠</td></tr>
+      </table>
+      <p style="margin-top:14px;font-size:13px;color:var(--muted)">
+        护栏自学习模块（waf_ai_guard）可持续将高分未拦截事件聚类铸造新规则（AILEARN），
+        经全量白样本零误报校验后热加载生效，逐步收敛残余漏报。
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h">性能实测<span class="en">PERFORMANCE</span></div>
+  <p class="sec-p">
+    生产环境实测（C 语言多线程内核 + epoll + TLS Session Cache + 全路径 Keep-Alive）。
+    HTTPS 短连接受完整 TLS 握手限制属正常水平，前置 nginx 终结或启用 Keep-Alive 后可显著提升。
+  </p>
+  <div class="panel"><div class="chart-sm" id="perfChart"></div></div>
+</section>
+
+<section>
+  <div class="sec-h">v1.0 功能清单<span class="en">FEATURES</span></div>
+  <div class="panel">
+    <table>
+      <tr><th>模块</th><th>能力</th></tr>
+      <tr><td>检测引擎</td><td>规则引擎（8 类攻击 + 扫描器指纹）· AI 双通道（char-CNN 蒸馏 + AE 自监督）· 三模式 rules / ai / auto</td></tr>
+      <tr><td>护栏自学习</td><td>高分未拦截事件聚类铸规则 → 全量白样本零误报校验 → 热加载生效 → 审计日志 + 一键回滚</td></tr>
+      <tr><td>CC 防护</td><td>滑动窗口限流 · 人机验证（SVG 图形码 + HMAC 签名 Cookie）· 失败 5 次自动封禁</td></tr>
+      <tr><td>监控大屏</td><td>全球攻击态势地图 · 实时攻击流 · 24h 趋势 · TOP 源/路径/规则 · 登录保护</td></tr>
+      <tr><td>管理后台</td><td>独立管理平面端口 · 独立 adminui 目录（自定义目录名）· 站点/规则/端口/证书管理 · 改密</td></tr>
+      <tr><td>证书管理</td><td>手动/自动续期 · 热加载 SSL 上下文 · 自签名签发 · 站点配置 section 感知写入</td></tr>
+      <tr><td>部署交付</td><td>configure / make / make install 标准构建 · systemd 单元 · RPM 包 · 多实例端口/目录隔离</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="conclusion">
+    <h3>验证结论</h3>
+    <ul>
+      <li>blazehttp 全量语料回放下，<code>auto</code> 模式综合准确率 <span class="hl">99.903%</span>（FN 2 / FP 31），满足 ≥99.8% 的设计目标；</li>
+      <li>检出率 99.70% 显著优于公开基线最优者（ModSecurity PL4 94.61%），且误报率 0.09% 比其低约 580 倍；</li>
+      <li>AI 双通道在 rules 基础上补拦 11 个漏检样本且不新增误报，验证了「规则为权威 + AI 为增强」架构的有效性；</li>
+      <li>残余 2 个漏报样本已纳入护栏自学习闭环持续收敛。</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  壁垒WAF BileiWAF v1.0 · 检测能力验证报告 · 测评工具 blazehttp · 2026-10-18
+  <div style="margin-top:8px">© 2026 内蒙古勤加软件有限公司 · 版权所有</div>
+</footer>
+
+</div>
+
+<script src="/assets/echarts.min.js"></script>
+<script>
+"use strict";
+if(typeof echarts!=="undefined"){
+const TIP = {backgroundColor:"#12233f",borderColor:"#1c2f4d",textStyle:{color:"#d8e4f5"}};
+const AXL = {axisLine:{lineStyle:{color:"#2a3f63"}},axisLabel:{color:"#7d8fa8"},splitLine:{lineStyle:{color:"rgba(28,47,77,.55)"}}};
+
+/* 三模式对比 */
+const modeChart = echarts.init(document.getElementById("modeChart"));
+modeChart.setOption({
+  tooltip:Object.assign({trigger:"axis",axisPointer:{type:"shadow"}},TIP),
+  legend:{top:4,textStyle:{color:"#7d8fa8"}},
+  grid:{left:16,right:16,top:40,bottom:8,containLabel:true},
+  xAxis:Object.assign({type:"category",data:["rules 纯规则","auto AI+规则","ai 纯AI"]},AXL),
+  yAxis:Object.assign({type:"value",name:"%",min:90,max:100},AXL),
+  series:[
+    {name:"检出率",type:"bar",data:[98.02,99.70,93.77],barWidth:"26%",
+     itemStyle:{borderRadius:[4,4,0,0],color:"#4da3ff"},
+     label:{show:true,position:"top",color:"#a8bdd8",formatter:"{c}%"}},
+    {name:"综合准确率",type:"bar",data:[99.87,99.903,99.879],barWidth:"26%",
+     itemStyle:{borderRadius:[4,4,0,0],color:"#35e0c8"},
+     label:{show:true,position:"top",color:"#a8bdd8",formatter:"{c}%"}}
+  ]
+});
+
+/* 基线对比 */
+const benchChart = echarts.init(document.getElementById("benchChart"));
+benchChart.setOption({
+  tooltip:Object.assign({trigger:"axis",axisPointer:{type:"shadow"}},TIP),
+  legend:{top:4,textStyle:{color:"#7d8fa8"}},
+  grid:{left:16,right:16,top:44,bottom:8,containLabel:true},
+  xAxis:Object.assign(AXL,{type:"category",
+    data:["CloudFlare","ModSec PL1","ModSec PL4","壁垒WAF rules","壁垒WAF auto"],
+    axisLabel:{color:"#a8bdd8",interval:0,rotate:18}}),
+  yAxis:Object.assign({type:"value",name:"%",min:0,max:105},AXL),
+  series:[
+    {name:"检出率",type:"bar",data:[10.70,69.74,94.61,98.02,99.70],barWidth:"24%",
+     itemStyle:{borderRadius:[4,4,0,0],
+       color:p=>p.dataIndex>=3?"#35e0c8":"#4da3ff"}},
+    {name:"综合准确率",type:"bar",data:[98.40,82.20,48.34,99.87,99.90],barWidth:"24%",
+     itemStyle:{borderRadius:[4,4,0,0],
+       color:p=>p.dataIndex>=3?"#9d7bff":"#35507e"}}
+  ]
+});
+
+/* 性能 */
+const perfChart = echarts.init(document.getElementById("perfChart"));
+perfChart.setOption({
+  tooltip:Object.assign({trigger:"axis",axisPointer:{type:"shadow"}},TIP),
+  grid:{left:16,right:30,top:30,bottom:8,containLabel:true},
+  xAxis:Object.assign({type:"value",name:"QPS"},AXL),
+  yAxis:Object.assign({type:"category",
+    data:["HTTPS 短连接","HTTPS Keep-Alive","HTTP Keep-Alive","HTTP 短连接"],
+    axisLabel:{color:"#a8bdd8"}},AXL),
+  series:[{type:"bar",barWidth:"46%",
+    data:[441,1037,4440,5759],
+    itemStyle:{borderRadius:[0,4,4,0],
+      color:new echarts.graphic.LinearGradient(0,0,1,0,
+        [{offset:0,color:"#2b7bff"},{offset:1,color:"#35e0c8"}])},
+    label:{show:true,position:"right",color:"#d8e4f5",fontWeight:600,formatter:"{c} QPS"}}]
+});
+
+window.addEventListener("resize",()=>{modeChart.resize();benchChart.resize();perfChart.resize();});
+}
+</script>
+</body>
+</html>

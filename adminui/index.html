@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>壁垒WAF · 管理后台</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.9);
+  --line:#1c2f4d; --ink:#d8e4f5; --muted:#7d8fa8;
+  --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c; --orange:#ffb454; --purple:#9d7bff;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);min-height:100vh;
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
+  background-image:radial-gradient(1100px 460px at 50% -8%,rgba(77,163,255,.10),transparent 60%)}
+#app{display:flex;flex-direction:row;height:100vh;min-height:100vh;overflow:hidden}
+
+/* ---------- 侧边栏 ---------- */
+.sidebar{width:220px;flex:none;display:flex;flex-direction:column;background:var(--panel2);
+  border-right:1px solid var(--line);position:relative;z-index:10;overflow-y:auto}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(77,163,255,.3);border-radius:2px}
+.sb-brand{display:flex;flex-direction:column;align-items:center;padding:20px 12px 18px;gap:8px;
+  border-bottom:1px solid var(--line)}
+.sb-brand img{width:150px;height:auto;object-fit:contain}
+.sb-brand b{font-size:15px;letter-spacing:2px;color:var(--ink)}
+.sb-brand small{font-size:10px;color:var(--muted);letter-spacing:3px}
+.sb-nav{display:flex;flex-direction:column;padding:10px 8px;flex:1}
+.sb-nav .sb-h{font-size:10px;color:var(--muted);letter-spacing:2px;padding:8px 12px 6px}
+.sb-nav a{color:#a8bdd8;text-decoration:none;font-size:13px;padding:9px 14px;border-radius:6px;
+  letter-spacing:1px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:2px;transition:.18s}
+.sb-nav a:hover{color:var(--ink);background:rgba(77,163,255,.08)}
+.sb-nav a.act{color:#fff;background:rgba(43,123,255,.22);font-weight:600;box-shadow:inset 0 0 0 1px rgba(53,224,200,.22)}
+.sb-nav a .ic{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:13px;flex:none}
+.sb-user{padding:12px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.sb-user b{color:var(--cyan)}
+.sb-user .sb-acts{display:flex;gap:6px;margin-top:8px}
+.sb-user button{background:transparent;border:1px solid var(--line);color:var(--muted);padding:5px 10px;font-size:11px;flex:1}
+.sb-user button:hover{color:var(--ink);border-color:var(--blue)}
+.sb-foot{padding:10px 12px 14px;border-top:1px solid var(--line);font-size:10px;color:var(--muted);
+  letter-spacing:1px;text-align:center;line-height:1.7}
+.sb-foot b{color:var(--cyan);font-weight:600}
+
+/* ---------- 主区域 ---------- */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar-user{height:52px;flex:none;display:flex;align-items:center;justify-content:flex-end;padding:0 20px;gap:14px;
+  background:var(--panel2);border-bottom:1px solid var(--line);position:relative}
+.topbar-user .title{position:absolute;left:20px;font-size:15px;letter-spacing:2px;color:var(--ink)}
+.userbox{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted)}
+.userbox b{color:var(--cyan)}
+.userbox button{background:transparent;border:1px solid var(--line);color:var(--muted);padding:6px 12px;font-size:12px}
+.userbox button:hover{color:var(--ink);border-color:var(--blue)}
+
+.content{flex:1;padding:18px 22px;overflow-y:auto}
+.content::-webkit-scrollbar{width:6px}
+.content::-webkit-scrollbar-thumb{background:rgba(77,163,255,.3);border-radius:3px}
+.page{display:none}
+.page.on{display:block}
+
+/* ---------- 卡片 / 表格 ---------- */
+.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.card .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--c,#4da3ff)}
+.card .l{font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:1px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.panel h3{font-size:14px;letter-spacing:1px;margin-bottom:12px;font-weight:600}
+.panel h3 small{color:var(--muted);font-weight:400;font-size:11px;margin-left:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);font-weight:400;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);
+  font-size:12px;letter-spacing:1px;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px dashed rgba(28,47,77,.55);word-break:break-all;color:#c6d6ec}
+tr:hover td{background:rgba(77,163,255,.05)}
+.tag{display:inline-block;padding:2px 9px;border-radius:3px;font-size:11px;letter-spacing:1px}
+.tag.red{color:#ff8a95;background:rgba(255,93,108,.14)}
+.tag.orange{color:#ffcd8a;background:rgba(255,180,84,.14)}
+.tag.cyan{color:#7df0dd;background:rgba(53,224,200,.12)}
+.tag.blue{color:#9cc8ff;background:rgba(77,163,255,.14)}
+.tag.gray{color:#9aa9c0;background:rgba(125,143,168,.14)}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.toolbar select,.toolbar input{width:auto;height:34px;font-size:13px}
+.toolbar input{width:170px}
+.toolbar .sp{flex:1}
+.btn{height:34px;padding:0 16px;background:linear-gradient(90deg,#2b7bff,#35b6e0);color:#fff;font-size:13px}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.btn.ghost:hover{color:var(--ink)}
+.btn.danger{background:rgba(255,93,108,.15);color:#ff8a95;border:1px solid rgba(255,93,108,.4)}
+.btn.sm{height:28px;padding:0 12px;font-size:12px}
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;font-size:13px;color:var(--muted)}
+.pager button{background:transparent;border:1px solid var(--line);color:var(--muted);padding:5px 12px;font-size:12px}
+.pager button:not(:disabled):hover{color:var(--ink);border-color:var(--blue)}
+.pager button:disabled{opacity:.35;cursor:not-allowed}
+.formrow{display:grid;grid-template-columns:170px 1fr;gap:12px;align-items:center;margin-bottom:12px}
+.formrow label{font-size:13px;color:var(--muted);text-align:right}
+.formrow input,.formrow select{max-width:340px}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.hint b{color:var(--orange)}
+.empty{color:var(--muted);font-size:13px;padding:18px 4px;text-align:center}
+textarea.pem{width:100%;min-height:120px;background:rgba(11,18,32,.8);border:1px solid var(--line);
+  border-radius:6px;color:var(--ink);padding:8px 10px;font-family:Consolas,monospace;font-size:11px;
+  resize:vertical;outline:none}
+textarea.pem:focus{border-color:var(--blue)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;font-size:13px}
+.kv span{color:var(--muted)}
+.kv b{color:#c6d6ec;font-variant-numeric:tabular-nums;font-weight:500}
+
+/* ---------- 弹窗 / 提示 ---------- */
+.modal{position:fixed;inset:0;background:rgba(4,8,16,.7);display:none;align-items:center;justify-content:center;z-index:60}
+.modal.on{display:flex}
+.modal .box{width:400px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:26px 28px}
+.modal .box h3{margin-bottom:18px;letter-spacing:1px}
+.modal .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.modal .acts .btn{min-width:88px}
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:99;display:none;
+  background:rgba(13,25,46,.96);border:1px solid var(--line);border-left:3px solid var(--cyan);
+  border-radius:6px;padding:10px 20px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#toast.err{border-left-color:var(--red)}
+
+/* ---------- 表单基础 / 弹窗字段 ---------- */
+input,select{background:rgba(11,18,32,.8);border:1px solid var(--line);border-radius:6px;
+  color:var(--ink);padding:0 10px;height:34px;font-size:13px;outline:none;font-family:inherit}
+input:focus,select:focus{border-color:var(--blue)}
+button{cursor:pointer;border:none;border-radius:6px;font-family:inherit}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+.fld input{width:100%}
+.login-err{color:var(--red);font-size:12px;min-height:16px}
+
+/* ---------- 页脚版权（已移到 sidebar.sb-foot，此处样式保留兼容） ---------- */
+</style>
+</head>
+<body>
+
+<!-- ================= 主界面（登录后可见，未登录由 boot() 302 到 /admin） ================= -->
+<div id="app">
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <img src="/images/bileiwaf_logo.png" alt="壁垒WAF">
+      <b>壁垒WAF</b><small>BILEIWAF CONSOLE</small>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-h">管理菜单</div>
+      <a data-p="ov"><span class="ic">◉</span>监控大屏</a>
+      <a data-p="logs"><span class="ic">⎔</span>攻击日志</a>
+      <a data-p="sites"><span class="ic">⌂</span>站点管理</a>
+      <a data-p="certs"><span class="ic">⎋</span>证书管理</a>
+      <a data-p="rules"><span class="ic">☰</span>规则文件</a>
+      <a data-p="conf"><span class="ic">⚙</span>端口配置</a>
+    </nav>
+    <div class="sb-user">
+      当前用户 <b id="u_name">—</b> <span id="u_role" style="display:none;color:var(--muted);border:1px solid var(--line);border-radius:9px;padding:1px 7px;font-size:10px;margin-left:4px"></span>
+      <div class="sb-acts">
+        <button id="btn_pwd">修改密码</button>
+        <button id="btn_out">退出</button>
+      </div>
+    </div>
+    <div class="sb-foot">© 2026 <b>内蒙古勤加软件有限公司</b><br>壁垒WAF BILEIWAF</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar-user">
+      <div class="title" id="cur_title">攻击日志</div>
+    </div>
+
+    <div class="content">
+
+    <!-- ===== 攻击日志 ===== -->
+    <div class="page" id="p-logs">
+      <div class="panel">
+        <div class="toolbar">
+          <select id="f_type"><option value="">全部类型</option></select>
+          <select id="f_action">
+            <option value="">全部动作</option>
+            <option value="block">拦截 block</option>
+            <option value="log">记录 log</option>
+          </select>
+          <input id="f_ip" placeholder="攻击源 IP">
+          <input id="f_q" placeholder="关键词（路径/规则/载荷）">
+          <select id="f_hours">
+            <option value="0">全部时间</option>
+            <option value="1">近 1 小时</option>
+            <option value="24" selected>近 24 小时</option>
+            <option value="168">近 7 天</option>
+          </select>
+          <button class="btn" id="f_go">查询</button>
+          <button class="btn ghost" id="f_reset">重置</button>
+          <div class="sp"></div>
+          <span class="hint" id="lg_scan"></span>
+        </div>
+        <table>
+          <thead><tr><th style="width:150px">时间</th><th style="width:80px">等级</th><th style="width:110px">类型</th>
+            <th style="width:130px">规则</th><th style="width:64px">动作</th><th style="width:120px">来源 IP</th>
+            <th>路径 / 载荷</th></tr></thead>
+          <tbody id="lg_rows"></tbody>
+        </table>
+        <div class="empty" id="lg_empty" style="display:none">该筛选条件下暂无攻击记录</div>
+        <div class="pager">
+          <span id="lg_total"></span>
+          <button id="lg_prev">上一页</button>
+          <span id="lg_page">1</span>
+          <button id="lg_next">下一页</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 站点管理 ===== -->
+    <div class="page" id="p-sites">
+      <div class="grid2" style="grid-template-columns:1fr 360px">
+        <div class="panel">
+          <h3>已接入站点<small>config/sites/*.conf</small><button class="btn ghost sm" id="st_refresh" style="float:right">刷新</button></h3>
+          <table>
+            <thead><tr><th>配置文件</th><th>域名</th><th>后端</th><th>状态</th><th style="width:70px">操作</th></tr></thead>
+            <tbody id="st_rows"></tbody>
+          </table>
+          <div class="hint">站点保存后需重载/重启 WAF 生效；删除前请确认业务已迁移。</div>
+        </div>
+        <div class="panel">
+          <h3>新增 / 更新站点</h3>
+          <div class="formrow"><label>保护域名</label><input id="st_domain" placeholder="www.example.com"></div>
+          <div class="formrow"><label>后端地址</label><input id="st_host" value="127.0.0.1"></div>
+          <div class="formrow"><label>后端端口</label><input id="st_port" value="9000"></div>
+          <button class="btn" id="st_save" style="width:100%;margin-top:8px">保存站点</button>
+          <div class="hint">域名仅允许字母数字与 <b>. -</b>；同名域名将覆盖原配置。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 证书管理 ===== -->
+    <div class="page" id="p-certs">
+      <div class="grid2" style="grid-template-columns:1fr 400px">
+        <div class="panel">
+          <h3>证书列表<small>站点引用 + WAF_HOME/certs/ 物理证书</small>
+            <button class="btn ghost sm" id="ct_refresh" style="float:right">刷新</button></h3>
+          <table>
+            <thead><tr><th>站点/CN</th><th>颁发者</th><th>到期日</th><th style="width:70px">剩余</th>
+              <th style="width:90px">状态</th><th style="width:70px">来源</th></tr></thead>
+            <tbody id="ct_rows"></tbody>
+          </table>
+          <div class="hint">「站点」为站点配置 cert_file 动态解析；「存储」为 WAF_HOME/certs/ 下物理证书。改动证书后需重载/重启 WAF 生效。</div>
+        </div>
+        <div>
+          <div class="panel" style="margin-bottom:14px">
+            <h3>上传证书</h3>
+            <div class="formrow"><label>保护域名</label><input id="ct_domain" placeholder="www.example.com"></div>
+            <div class="formrow" style="align-items:start"><label>证书 PEM</label><textarea class="pem" id="ct_cert" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"></textarea></div>
+            <div class="formrow" style="align-items:start"><label>私钥 PEM</label><textarea class="pem" id="ct_key" placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea></div>
+            <div class="formrow"><label>应用到站点</label>
+              <select id="ct_apply"><option value="1">写入站点配置（cert_file/key_file）</option><option value="0">仅存入证书库</option></select></div>
+            <button class="btn" id="ct_upload" style="width:100%;margin-top:4px">校验并上传</button>
+            <div class="hint">上传前自动校验证书与私钥匹配（modulus 比对），不匹配直接拒绝。</div>
+          </div>
+          <div class="panel" style="margin-bottom:14px">
+            <h3>证书续期<small>手动 / 后台每日自动</small></h3>
+            <div class="formrow"><label>仅续期域名</label><input id="cr_domain" placeholder="留空=续期全部站点证书"></div>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn" id="cr_one" style="flex:1">立即续期</button>
+              <button class="btn ghost" id="cr_all" style="flex:1">全部续期</button>
+            </div>
+            <div class="hint">Let's Encrypt 证书走 certbot（webroot）自动续期；自签证书用原 CN 重签。后台线程每日检查临近到期（≤30 天）证书并自动续期，成功后热加载 SSL 上下文，无需重启。</div>
+          </div>
+          <div class="panel">
+            <h3>生成自签证书</h3>
+            <div class="formrow"><label>保护域名</label><input id="cs_domain" placeholder="test.local"></div>
+            <div class="formrow"><label>有效期（天）</label><input id="cs_days" value="365"></div>
+            <div class="formrow"><label>应用到站点</label>
+              <select id="cs_apply"><option value="1">写入站点配置</option><option value="0">仅存入证书库</option></select></div>
+            <button class="btn ghost" id="cs_gen" style="width:100%;margin-top:4px">生成自签证书</button>
+            <div class="hint">自签证书带 SAN 扩展，仅供测试环境使用；浏览器访问需手动信任。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 规则文件 ===== -->
+    <div class="page" id="p-rules">
+      <div class="panel">
+        <h3>规则文件列表<small>rules/ 目录</small><button class="btn ghost sm" id="rl_refresh" style="float:right">刷新</button></h3>
+        <table>
+          <thead><tr><th style="width:40%">文件</th><th>规则 / 条目数</th><th style="width:120px">状态</th></tr></thead>
+          <tbody id="rl_rows"></tbody>
+        </table>
+        <div class="hint">规则文件由检测引擎加载，白名单 whitelist.ip 生效需重启实例。</div>
+      </div>
+    </div>
+
+    <!-- ===== 端口配置 ===== -->
+    <div class="page" id="p-conf">
+      <div class="grid2" style="grid-template-columns:420px 1fr">
+        <div class="panel">
+          <h3>监听端口</h3>
+          <div class="kv" style="margin-bottom:18px">
+            <span>数据平面 HTTP</span><b id="cf_http">—</b>
+            <span>数据平面 HTTPS</span><b id="cf_https">—</b>
+            <span>反代后端端口</span><b id="cf_bk">—</b>
+            <span>管理平面端口</span><b id="cf_adm" style="color:var(--cyan)">—</b>
+          </div>
+          <h3>运行参数（重启后生效）</h3>
+          <div class="formrow"><label>HTTP 端口</label><input id="cf_e_http" placeholder="80"></div>
+          <div class="formrow"><label>HTTPS 端口</label><input id="cf_e_https" placeholder="443"></div>
+          <div class="formrow"><label>后端端口</label><input id="cf_e_bk" placeholder="9000"></div>
+          <div class="formrow"><label>后端地址</label><input id="cf_e_bhost" placeholder="127.0.0.1"></div>
+          <div class="formrow"><label>worker 线程</label><input id="cf_e_w" placeholder="8"></div>
+          <div class="formrow"><label>检测模式</label>
+            <select id="cf_e_mode">
+              <option value="rules">rules · 纯规则</option>
+              <option value="ai">ai · 纯 AI</option>
+              <option value="auto">auto · 规则+AI</option>
+            </select></div>
+          <div class="formrow"><label>日志级别</label>
+            <select id="cf_e_log">
+              <option value="DEBUG">DEBUG</option>
+              <option value="INFO">INFO</option>
+              <option value="WARN">WARN</option>
+              <option value="ERROR">ERROR</option>
+            </select></div>
+          <button class="btn" id="cf_save" style="width:100%;margin-top:6px">保存配置</button>
+          <div class="hint">修改保存至 <b>config/waf.conf</b>，需重启 WAF 进程生效；管理平面端口由启动参数 <b>-a</b> / 环境变量 WAF_ADMIN_PORT 控制，此处只读。</div>
+        </div>
+        <div class="panel">
+          <h3>waf.conf 原始键值（只读）<button class="btn ghost sm" id="cf_refresh" style="float:right">刷新</button></h3>
+          <table><tbody id="cf_raw"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  </main>
+</div>
+
+<!-- 修改密码弹窗 -->
+<div class="modal" id="m_pwd">
+  <div class="box">
+    <h3>修改密码</h3>
+    <div class="fld"><label>当前密码</label><input id="pw_old" type="password"></div>
+    <div class="fld"><label>新密码（6 位以上）</label><input id="pw_new" type="password"></div>
+    <div class="fld"><label>确认新密码</label><input id="pw_new2" type="password"></div>
+    <div class="login-err" id="pw_err" style="margin:0 0 4px"></div>
+    <div class="acts"><button class="btn ghost" data-close="m_pwd">取消</button>
+      <button class="btn" id="pw_ok">确认修改</button></div>
+  </div>
+</div>
+
+<!-- 删除站点确认 -->
+<div class="modal" id="m_del">
+  <div class="box">
+    <h3>删除站点</h3>
+    <div style="font-size:13px;color:var(--muted)">确认删除 <b id="del_name" style="color:var(--red)"></b> ？删除后需重载/重启 WAF 生效。</div>
+    <div class="acts"><button class="btn ghost" data-close="m_del">取消</button>
+      <button class="btn danger" id="del_ok">确认删除</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const TYPE_CN={SQL_INJECTION:"SQL注入",XSS:"XSS攻击",CMD_INJECTION:"命令注入",PATH_TRAVERSAL:"路径穿越",
+  XXE:"XXE攻击",SSRF:"SSRF",FILE_UPLOAD:"文件上传",SCANNER:"扫描探测",CC:"CC攻击",UNKNOWN:"其他攻击"};
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let toastTm;
+function toast(msg,err){
+  const t=$("toast"); t.textContent=msg; t.className=err?"err":""; t.style.display="block";
+  clearTimeout(toastTm); toastTm=setTimeout(()=>t.style.display="none",2600);
+}
+function modal(id,on){ $(id).classList[on?"add":"remove"]("on"); }
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>modal(b.dataset.close,false));
+document.querySelectorAll(".modal").forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove("on");});
+
+/* ---------- API 封装：401 回登录页 ---------- */
+async function api(path,opt){
+  const r=await fetch(path,opt);
+  if(r.status===401){ location.replace("/admin"); throw new Error("unauthorized"); }
+  return await r.json().catch(()=>({success:false,message:"响应解析失败"}));
+}
+function postForm(path,body){
+  return api(path,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
+}
+const enc=v=>encodeURIComponent(v==null?"":v);
+
+/* ---------- 会话引导：未认证由后端闸门处理，此处兜底 ---------- */
+async function boot(){
+  try{
+    const j=await api("/api/admin/session");
+    if(j&&j.authenticated){
+      $("u_name").textContent=j.user||"admin";
+      /* 角色显隐：admin=后台全部功能；monitor（监控人员）仅监控大屏 */
+      const role=j.role||"monitor";
+      const tag=$("u_role");
+      if(tag){ tag.textContent=role==="admin"?"管理员":"监控人员"; tag.style.display="inline-block"; }
+      if(role!=="admin"){
+        document.querySelectorAll("nav a").forEach(x=>{
+          if(x.dataset.p!=="ov") x.style.display="none";
+        });
+        const bp=$("btn_pwd"); if(bp) bp.style.display="none";
+        location.replace("/admin/dashboard");
+        return;
+      }
+      activate("logs");
+    }
+    else location.replace("/admin");
+  }catch(e){ if(String(e&&e.message)!=="unauthorized") location.replace("/admin"); }
+}
+$("btn_out").onclick=async()=>{ try{await postForm("/api/admin/logout","x=1");}catch(e){} location.replace("/admin"); };
+
+/* ---------- 修改密码 ---------- */
+$("btn_pwd").onclick=()=>{ $("pw_err").textContent=""; ["pw_old","pw_new","pw_new2"].forEach(i=>$(i).value=""); modal("m_pwd",true); };
+$("pw_ok").onclick=async()=>{
+  const o=$("pw_old").value,n=$("pw_new").value,n2=$("pw_new2").value;
+  if(n.length<6){ $("pw_err").textContent="新密码长度需为 6-99 位"; return; }
+  if(n!==n2){ $("pw_err").textContent="两次输入的新密码不一致"; return; }
+  try{
+    const j=await postForm("/api/admin/password","old="+enc(o)+"&new="+enc(n));
+    if(j&&j.success){ modal("m_pwd",false); toast("密码修改成功"); }
+    else $("pw_err").textContent=(j&&j.message)||"修改失败";
+  }catch(e){ $("pw_err").textContent="修改失败（旧密码错误？）"; }
+};
+
+/* ---------- 页签（监控大屏跳转独立页） ---------- */
+const LOADERS={logs:loadLogs,sites:loadSites,certs:loadCerts,rules:loadRules,conf:loadConf};
+const MENU_TITLE={logs:"攻击日志",sites:"站点管理",certs:"证书管理",rules:"规则文件",conf:"端口配置"};
+function activate(p){
+  document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("act",x.dataset.p===p));
+  document.querySelectorAll(".page").forEach(pg=>pg.classList.remove("on"));
+  const el=$("p-"+p); if(el) el.classList.add("on");
+  const t=$("cur_title"); if(t) t.textContent=MENU_TITLE[p]||"";
+  (LOADERS[p]||(()=>{}))();
+}
+document.querySelectorAll("nav a").forEach(a=>a.onclick=()=>{
+  if(a.dataset.p==="ov"){ location.href="/admin/dashboard"; return; }
+  activate(a.dataset.p);
+});
+
+/* ---------- 攻击日志 ---------- */
+const LOG_PAGE_SIZE=20; let lgPage=1;
+(function initTypeFilter(){
+  const sel=$("f_type");
+  Object.entries(TYPE_CN).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v+" "+k;sel.appendChild(o);});
+})();
+function lgQuery(incPage){
+  const p=new URLSearchParams();
+  p.set("page",incPage?lgPage=1:lgPage); p.set("size",LOG_PAGE_SIZE);
+  if($("f_type").value)p.set("type",$("f_type").value);
+  if($("f_action").value)p.set("action",$("f_action").value);
+  if($("f_ip").value.trim())p.set("ip",$("f_ip").value.trim());
+  if($("f_q").value.trim())p.set("q",$("f_q").value.trim());
+  p.set("hours",$("f_hours").value);
+  return "/api/admin/logs/attacks?"+p.toString();
+}
+async function loadLogs(){
+  try{
+    const j=await api(lgQuery(false)); if(!j||!j.success) return;
+    const d=j.data;
+    $("lg_scan").textContent=`已扫描日志 ${d.scanned_mb||0} MB`;
+    $("lg_total").textContent=`共 ${Number(d.total).toLocaleString("en-US")} 条`;
+    $("lg_page").textContent=d.page;
+    $("lg_prev").disabled=d.page<=1;
+    $("lg_next").disabled=d.page*LOG_PAGE_SIZE>=d.total;
+    $("lg_empty").style.display=d.rows&&d.rows.length?"none":"block";
+    $("lg_rows").innerHTML=(d.rows||[]).map(r=>{
+      const sev=+r.sev>=4?["高危","red"]:(+r.sev===3?["中危","orange"]:["低危","cyan"]);
+      const tc={SQL_INJECTION:"red",XSS:"orange",CMD_INJECTION:"orange",PATH_TRAVERSAL:"blue",
+        XXE:"blue",SSRF:"blue",FILE_UPLOAD:"orange",SCANNER:"cyan",CC:"blue",UNKNOWN:"gray"}[r.type]||"gray";
+      const payload=r.query?`<div class="hint" style="margin:2px 0 0;color:#8fa3c0;font-family:Consolas,monospace">?${esc(r.query)}</div>`:"";
+      return `<tr>
+        <td style="white-space:nowrap;color:var(--muted)">${esc(r.time)}</td>
+        <td><span class="tag ${sev[1]}">${sev[0]}</span></td>
+        <td><span class="tag ${tc}">${esc(TYPE_CN[r.type]||r.type)}</span></td>
+        <td style="font-family:Consolas,monospace;font-size:11px">${esc(r.rule)}</td>
+        <td>${r.action==="block"?'<span class="tag red">拦截</span>':'<span class="tag gray">记录</span>'}</td>
+        <td style="font-variant-numeric:tabular-nums">${esc(r.ip)}</td>
+        <td><span style="font-family:Consolas,monospace;font-size:12px">${esc(r.method)} </span>${esc(r.path)}${payload}</td>
+      </tr>`;}).join("");
+  }catch(e){}
+}
+$("f_go").onclick=()=>{lgPage=1;loadLogs();};
+$("f_reset").onclick=()=>{$("f_type").value="";$("f_action").value="";$("f_ip").value="";$("f_q").value="";$("f_hours").value="0";lgPage=1;loadLogs();};
+$("f_ip").onkeydown=$("f_q").onkeydown=e=>{if(e.key==="Enter"){lgPage=1;loadLogs();}};
+$("lg_prev").onclick=()=>{if(lgPage>1){lgPage--;loadLogs();}};
+$("lg_next").onclick=()=>{lgPage++;loadLogs();};
+
+/* ---------- 站点管理 ---------- */
+async function loadSites(){
+  try{
+    const j=await api("/api/admin/sites"); if(!j||!j.success) return;
+    $("st_rows").innerHTML=(j.data||[]).map(s=>`<tr>
+      <td style="font-family:Consolas,monospace;font-size:12px">${esc(s.file)}</td>
+      <td style="color:var(--cyan)">${esc(s.domain)}</td>
+      <td>${esc(s.backend_host)}:${esc(s.backend_port)}</td>
+      <td>${s.enabled==="1"?'<span class="tag cyan">启用</span>':'<span class="tag gray">停用</span>'}</td>
+      <td><button class="btn danger sm" data-del="${esc(s.file)}" data-nm="${esc(s.domain)}">删除</button></td>
+    </tr>`).join("")||`<tr><td class="empty">暂无站点</td></tr>`;
+    document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+      $("del_name").textContent=b.dataset.nm+" ("+b.dataset.del+")";
+      $("del_ok").onclick=async()=>{
+        try{
+          const r=await postForm("/api/admin/sites/delete","file="+enc(b.dataset.del));
+          modal("m_del",false); toast((r&&r.message)||"已删除",!(r&&r.success)); loadSites();
+        }catch(e){ modal("m_del",false); toast("删除失败",true); }
+      };
+      modal("m_del",true);
+    });
+  }catch(e){}
+}
+$("st_refresh").onclick=loadSites;
+$("st_save").onclick=async()=>{
+  const d=$("st_domain").value.trim(),h=$("st_host").value.trim(),p=$("st_port").value.trim();
+  if(!d){ toast("请输入保护域名",true); return; }
+  if(!/^\d+$/.test(p)){ toast("后端端口必须为数字",true); return; }
+  try{
+    const r=await postForm("/api/admin/sites","domain="+enc(d)+"&backend_host="+enc(h)+"&backend_port="+enc(p));
+    toast((r&&r.message)||"已保存",!(r&&r.success));
+    if(r&&r.success){ $("st_domain").value=""; loadSites(); }
+  }catch(e){}
+};
+
+/* ---------- 证书管理 ---------- */
+async function loadCerts(){
+  try{
+    const j=await api("/api/admin/certs"); if(!j||!j.success) return;
+    $("ct_rows").innerHTML=(j.data||[]).map(c=>{
+      const st=c.status==="expired"?["已过期","red"]:(c.status==="warning"?["即将到期","orange"]:["正常","cyan"]);
+      const src=c.source==="site"?'<span class="tag blue">站点</span>':'<span class="tag gray">存储</span>';
+      const dl=(typeof c.days_left==="number")?c.days_left:null;
+      const days=(dl==null||dl<=-9000)?"—":(dl<0?("已过期 "+(-dl)+" 天"):(dl+" 天"));
+      return `<tr>
+        <td><div style="color:var(--cyan)">${esc(c.site||"—")}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:Consolas,monospace">${esc(c.cn||"")}</div></td>
+        <td style="font-size:12px;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.issuer||"")}">${esc(c.issuer||"—")}</td>
+        <td style="white-space:nowrap;font-variant-numeric:tabular-nums;font-size:12px">${esc(c.not_after||"—")}</td>
+        <td style="font-variant-numeric:tabular-nums">${days}</td>
+        <td><span class="tag ${st[1]}">${st[0]}</span></td>
+        <td>${src}</td></tr>`;
+    }).join("")||`<tr><td colspan="6" class="empty">暂无证书</td></tr>`;
+  }catch(e){}
+}
+$("ct_refresh").onclick=loadCerts;
+$("ct_upload").onclick=async()=>{
+  const d=$("ct_domain").value.trim(),c=$("ct_cert").value,k=$("ct_key").value,a=$("ct_apply").value;
+  if(!d){ toast("请输入保护域名",true); return; }
+  if(c.indexOf("BEGIN CERTIFICATE")<0){ toast("证书 PEM 格式不正确",true); return; }
+  if(k.indexOf("PRIVATE KEY")<0){ toast("私钥 PEM 格式不正确",true); return; }
+  $("ct_upload").disabled=true;
+  try{
+    const r=await postForm("/api/admin/certs/upload","domain="+enc(d)+"&apply="+enc(a)+"&cert="+enc(c)+"&key="+enc(k));
+    toast((r&&r.message)||"已上传",!(r&&r.success));
+    if(r&&r.success){ $("ct_cert").value=""; $("ct_key").value=""; loadCerts(); }
+  }catch(e){ toast("上传失败",true); }
+  $("ct_upload").disabled=false;
+};
+$("cs_gen").onclick=async()=>{
+  const d=$("cs_domain").value.trim(),days=$("cs_days").value.trim()||"365",a=$("cs_apply").value;
+  if(!d){ toast("请输入保护域名",true); return; }
+  if(!/^\d+$/.test(days)){ toast("有效期必须为数字",true); return; }
+  $("cs_gen").disabled=true;
+  try{
+    const r=await postForm("/api/admin/certs/selfsign","domain="+enc(d)+"&days="+enc(days)+"&apply="+enc(a));
+    toast((r&&r.message)||"已生成",!(r&&r.success));
+    if(r&&r.success) loadCerts();
+  }catch(e){ toast("生成失败",true); }
+  $("cs_gen").disabled=false;
+};
+
+/* 手动续期：domain 留空=续期全部站点证书 */
+async function doRenew(domain,btn){
+  btn.disabled=true; const old=btn.textContent; btn.textContent="续期中…";
+  try{
+    const r=await postForm("/api/admin/certs/renew",domain?("domain="+enc(domain)):"");
+    if(!r||!r.success) throw 0;
+    const n=(r.renewed||0),f=(r.failed||0);
+    toast(`续期完成：成功 ${n}，失败 ${f}`+(r.ssl_reloaded?"（SSL 已热加载）":""), f>0);
+    loadCerts();
+  }catch(e){ toast("续期请求失败",true); }
+  btn.disabled=false; btn.textContent=old;
+}
+$("cr_one").onclick=()=>doRenew($("cr_domain").value.trim(),$("cr_one"));
+$("cr_all").onclick=()=>doRenew("",$("cr_all"));
+
+/* ---------- 规则文件 ---------- */
+async function loadRules(){
+  try{
+    const j=await api("/api/admin/rules"); if(!j||!j.success) return;
+    $("rl_rows").innerHTML=(j.data||[]).map(r=>`<tr>
+      <td style="font-family:Consolas,monospace;font-size:12px">${esc(r.file)}</td>
+      <td>${Number(r.entries).toLocaleString("en-US")} 条</td>
+      <td>${r.file.endsWith(".ip")?'<span class="tag blue">IP 白名单</span>':'<span class="tag cyan">检测规则</span>'}</td>
+    </tr>`).join("")||`<tr><td class="empty">未找到规则文件</td></tr>`;
+  }catch(e){}
+}
+$("rl_refresh").onclick=loadRules;
+
+/* ---------- 端口配置 ---------- */
+const CF_FIELDS=[["cf_e_http","http_port"],["cf_e_https","https_port"],["cf_e_bk","backend_port"],
+  ["cf_e_bhost","backend_host"],["cf_e_w","worker_threads"],["cf_e_mode","detection_mode"],["cf_e_log","log_level"]];
+async function loadConf(){
+  try{
+    const j=await api("/api/admin/config"); if(!j||!j.success) return;
+    const d=j.data||{};
+    $("cf_http").textContent=d.http_port?("0.0.0.0:"+d.http_port):"—";
+    $("cf_https").textContent=d.https_port?("0.0.0.0:"+d.https_port):"—";
+    $("cf_bk").textContent=d.backend_port?("127.0.0.1:"+d.backend_port):"—";
+    CF_FIELDS.forEach(([id,k])=>{ if(d[k]!==undefined&&d[k]!=="") $(id).value=d[k]; });
+    /* 会话接口带 listen（管理端口为运行时值） */
+    const s=await api("/api/admin/session");
+    $("cf_adm").textContent=s&&s.listen&&s.listen.admin_port?("0.0.0.0:"+s.listen.admin_port):"未启用（经 WAF 访问）";
+    $("cf_raw").innerHTML=Object.entries(d).sort().map(([k,v])=>
+      `<tr><td style="width:38%;font-family:Consolas,monospace;color:#9cc8ff">${esc(k)}</td><td>${esc(v)||"<span style='color:var(--muted)'>（空）</span>"}</td></tr>`).join("");
+  }catch(e){}
+}
+$("cf_refresh").onclick=loadConf;
+$("cf_save").onclick=async()=>{
+  const body=CF_FIELDS.filter(([id])=>$(id).value.trim()!=="")
+    .map(([id,k])=>k+"="+enc($(id).value.trim())).join("&");
+  if(!body){ toast("没有可保存的配置",true); return; }
+  try{
+    const r=await postForm("/api/admin/config",body);
+    toast((r&&r.message)||"已保存",!(r&&r.success));
+    loadConf();
+  }catch(e){}
+};
+
+/* ---------- 启动 ---------- */
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+PATH,%2e%2e%2f,5,block,Double encoded traversal
+PATH,%2e%2e%5c,5,block,Windows double encoded
+PATH,%2e%2e/,5,block,Double encoded traversal alt
+PATH,(\.\./)+[^"\s]*(passwd|shadow|win\.ini|boot\.ini|web\.xml|WEB-INF|\.ssh)|(\.\./)(\.\./)(\.\./)+,5,block,Plain dot dot slash
+PATH,(\.\.\\)+[^"]*(win\.ini|boot\.ini|windows|winnt|system32|sam),5,block,Plain dot dot backslash
+PATH,/etc/shadow,5,block,Etc shadow file
+PATH,/proc/self/environ,5,block,Proc self environ
+PATH,/proc/self/cmdline,5,block,Proc self cmdline
+PATH,/etc/group,5,block,Etc group file
+PATH,/etc/sudoers,5,block,Etc sudoers file
+PATH,/root/.ssh,5,block,Root ssh directory
+PATH,file:///(etc|windows|winnt|boot|[a-z]:),5,block,File protocol
+PATH,%2557,5,block,Double encoded W
+PATH,%0[dD]%0[aA](%0[dD]|%0[aA])*X-[A-Za-z0-9-]+%3[aA],5,block,CRLF X-header injection
+PATH,[;/]WEB-INF[/.],5,block,WEB-INF direct access
+PATH,\.git(/|$),5,block,git exposure
+PATH,dumpConfig\s*=,5,block,Admin dumpConfig
+PATH,/v1/config/application,5,block,Joomla config exposure
+PATH,\.php[0-9]?\.(jpg|jpeg|png|gif),5,block,Double extension php image
+PATH,_template.*web\.xml,5,block,Confluence template web.xml access

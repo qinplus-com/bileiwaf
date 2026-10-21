@@ -1,0 +1,359 @@
+#!/usr/bin/env bash
+# ============================================================
+# 壁垒WAF (BileiWAF) 服务管理脚本
+#
+# 用法:
+#   ./waf start [waf|admin] [-p 80] [-s 443] [-b 127.0.0.1:9000] [-a 19000]
+#   ./waf stop [waf|admin]      # 缺省 = 全部平面；waf=数据平面 admin=管理平面
+#   ./waf status                # systemctl 语义: 运行中 exit 0 / 停止 exit 3
+#   ./waf restart [waf|admin] [参数同 start]
+#
+# 进程组成:
+#   数据平面 bin/bileiwaf        (前置检测引擎, 默认 0.0.0.0:80/443)
+#   管理平面 bin/bileiwaf-admin  (控制台/产品站/演示站, 127.0.0.1:9000 + 管理端口)
+#
+# systemd: ExecStart=@PREFIX@/waf start（WAF_FOREGROUND=1 时数据平面前台运行）
+# 兼容: start.sh/stop.sh 为本脚本的等价 wrapper
+# ============================================================
+set -u
+cd "$(dirname "$0")" || exit 1
+
+log() { echo "[bileiwaf] $*"; }
+err() { echo "[bileiwaf] 错误: $*" >&2; }
+
+# ---------- 公共环境 ----------
+export WAF_HOME="$PWD"
+export WAF_PID_FILE="$PWD/logs/bileiwaf.pid"
+# 管理平面端口：config/waf.conf 的 admin_port 键（-a 显式指定时由调用方 export 覆盖）
+ADMIN_PORT=$(sed -n 's/^[[:space:]]*admin_port[[:space:]]*=[[:space:]]*\([0-9]\{1,5\}\).*/\1/p' config/waf.conf 2>/dev/null | head -1)
+[ -n "${WAF_ADMIN_PORT:-}" ] && ADMIN_PORT="$WAF_ADMIN_PORT"
+[ -n "$ADMIN_PORT" ] && export WAF_ADMIN_PORT="$ADMIN_PORT"
+# 便携发行包：lib/ 目录存在时优先加载捆绑运行库
+if [ -d "$PWD/lib" ]; then
+    export LD_LIBRARY_PATH="$PWD/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+# CC 阈值：60 秒内同一 IP 超过 60 次请求触发人机验证/封禁（可用环境变量覆盖）
+export WAF_CC_MAX_REQUESTS="${WAF_CC_MAX_REQUESTS:-60}"
+export WAF_CC_TIME_WINDOW="${WAF_CC_TIME_WINDOW:-60}"
+export WAF_CC_BLOCK_DURATION="${WAF_CC_BLOCK_DURATION:-60}"
+WORKER_THREADS="${WAF_WORKER_THREADS:-8}"
+
+# ---------- 等待端口释放 ----------
+wait_port_free() { # $1=port
+    local n=20
+    while [ $n -gt 0 ]; do
+        ss -tln 2>/dev/null | grep -qE "[:.]$1[[:space:]]" || return 0
+        sleep 0.5; n=$((n-1))
+    done
+    log "警告: 端口 $1 仍被占用，数据平面可能启动失败"
+}
+
+# ---------- 等待进程退出 ----------
+wait_exit() { # $1=pid $2=名称 $3=超时秒
+    local pid="$1" name="$2" n=$(( ${3:-10} * 2 ))
+    while [ $n -gt 0 ]; do
+        kill -0 "$pid" 2>/dev/null || return 0
+        sleep 0.5; n=$((n-1))
+    done
+    log "$name (PID $pid) 未在超时内退出，发送 SIGKILL"
+    kill -9 "$pid" 2>/dev/null
+    sleep 0.5
+}
+
+# ---------- HTTPS 证书自检 ----------
+ensure_cert() {
+    if [ -f config/waf.conf ] && grep -qE '^cert_file *= *certs/server\.(pem|crt)' config/waf.conf 2>/dev/null; then
+        local CERT_PEM CERT_KEY
+        CERT_PEM=$(grep -E '^cert_file *= *' config/waf.conf | head -1 | sed -E 's/^cert_file *= *//; s/[[:space:]]+$//')
+        CERT_KEY=$(grep -E '^key_file *= *'  config/waf.conf | head -1 | sed -E 's/^key_file *= *//; s/[[:space:]]+$//')
+        if [ -n "$CERT_PEM" ] && [ ! -f "$CERT_PEM" ] && command -v openssl >/dev/null 2>&1; then
+            mkdir -p certs
+            openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+                -keyout "${CERT_KEY:-certs/server.key}" -out "$CERT_PEM" \
+                -subj "/C=CN/ST=Local/L=Local/O=BileiWAF/CN=localhost" \
+                -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" >/dev/null 2>&1 \
+                && chmod 600 "${CERT_KEY:-certs/server.key}" \
+                && log "已自动生成自签证书: $CERT_PEM（生产请替换正式证书后重启）"
+        fi
+    fi
+}
+
+# ---------- 进程状态 helper ----------
+pid_alive() { # $1=pid文件；僵尸进程（state=Z，kill -0 仍成功）视为已死亡
+    [ -f "$1" ] || return 1
+    local pid
+    pid=$(cat "$1" 2>/dev/null) || return 1
+    kill -0 "$pid" 2>/dev/null || return 1
+    [ "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" = "Z" ] && return 1
+    return 0
+}
+uptime_of() { # $1=pid → "1d2h3m"
+    local s
+    s=$(ps -o etimes= -p "$1" 2>/dev/null | tr -d ' ') || return
+    [ -n "$s" ] || return
+    if   [ "$s" -ge 86400 ]; then echo "$((s/86400))d$((s%86400/3600))h$((s%3600/60))m"
+    elif [ "$s" -ge 3600 ];  then echo "$((s/3600))h$((s%3600/60))m"
+    elif [ "$s" -ge 60 ];    then echo "$((s/60))m$((s%60))s"
+    else echo "${s}s"; fi
+}
+listen_on() { # $1=port → 端口有监听返回 0
+    ss -tln 2>/dev/null | grep -qE "[:.]$1[[:space:]]"
+}
+# 按端口定位监听进程 pid（禁用 pgrep -f：会误匹配包装进程导致误杀）
+pid_on_port() { # $1=port → 输出 pid（可能为空）
+    ss -tlnp 2>/dev/null | grep -E "[:.]$1[[:space:]]" | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -1
+}
+# 校验 pid 是否为本实例的管理平面进程（comm 匹配 + cwd 属于本 WAF_HOME，防误杀其它实例）
+is_admin_proc() { # $1=pid
+    grep -qa 'bileiwaf-admin' "/proc/$1/comm" 2>/dev/null || return 1
+    local cwd
+    cwd=$(readlink "/proc/$1/cwd" 2>/dev/null) || return 1
+    [ "$cwd" = "$PWD" ]
+}
+
+# ============================================================
+# start：waf start [waf|admin]（缺省 = 全部平面）
+# ============================================================
+# ---------- 管理平面启动 ----------
+start_admin_plane() {
+    [ -x bin/bileiwaf-admin ] || { err "bin/bileiwaf-admin 不存在，请先 make"; exit 1; }
+    if pid_alive logs/admin.pid; then
+        log "管理平面已在运行 (PID $(cat logs/admin.pid))"
+    else
+        # 孤儿进程自愈：pid 文件缺失但后端端口被旧 admin 占用（如手工 nohup 启动未写 pid 文件）
+        local ORPHAN
+        ORPHAN=$(pid_on_port "$BACKEND_PORT")
+        if [ -n "$ORPHAN" ] && is_admin_proc "$ORPHAN"; then
+            log "发现占用 $BACKEND_PORT 的孤儿管理进程 (PID $ORPHAN)，先停止"
+            kill "$ORPHAN" 2>/dev/null
+            wait_exit "$ORPHAN" "孤儿管理进程" 5
+        fi
+        nohup ./bin/bileiwaf-admin "$BACKEND_PORT" web/demo.html logs/waf-attack.log web \
+            >> logs/admin.log 2>&1 &
+        echo $! > logs/admin.pid
+        sleep 0.3
+        if ! kill -0 "$(cat logs/admin.pid)" 2>/dev/null; then
+            local HOLDER
+            HOLDER=$(pid_on_port "$BACKEND_PORT")
+            if [ -n "$HOLDER" ]; then
+                err "管理平面启动失败: 端口 $BACKEND_PORT 被 PID $HOLDER ($(cat "/proc/$HOLDER/comm" 2>/dev/null || echo 未知进程)) 占用，详见 logs/admin.log"
+            else
+                err "管理平面启动失败，详见 logs/admin.log"
+            fi
+            exit 1
+        fi
+        log "管理平面已启动: 127.0.0.1:$BACKEND_PORT (PID $(cat logs/admin.pid))"
+    fi
+}
+
+# ---------- 数据平面启动 ----------
+start_waf_plane() {
+    [ -x bin/bileiwaf ] || { err "bin/bileiwaf 不存在，请先 make"; exit 1; }
+    # ---------- 端口释放等待 ----------
+    wait_port_free "$WAF_PORT"
+    wait_port_free "$HTTPS_PORT"
+
+    # ---------- 数据平面 ----------
+    # WAF_FOREGROUND=1：由 systemd 以 Type=simple 监督——数据平面前台运行，
+    # 崩溃原因进 journal，由 Restart=on-failure 自动拉起
+    if [ "${WAF_FOREGROUND:-0}" = "1" ]; then
+        log "启动数据平面（前台，systemd 监督）: 0.0.0.0:$WAF_PORT -> 127.0.0.1:$BACKEND_PORT (阻断模式)"
+        exec ./bin/bileiwaf start -p "$WAF_PORT" -s "$HTTPS_PORT" -b "127.0.0.1:$BACKEND_PORT" -w "$WORKER_THREADS"
+    fi
+
+    if pid_alive "$WAF_PID_FILE"; then
+        log "数据平面已在运行 (PID $(cat "$WAF_PID_FILE"))"
+    else
+        log "启动数据平面: 0.0.0.0:$WAF_PORT -> 127.0.0.1:$BACKEND_PORT (阻断模式)"
+        ./bin/bileiwaf start -p "$WAF_PORT" -s "$HTTPS_PORT" -b "127.0.0.1:$BACKEND_PORT" -w "$WORKER_THREADS" --daemon
+        sleep 0.5
+    fi
+
+    # ---------- 健康检查（最多 10 秒）----------
+    # 剥离 LD_LIBRARY_PATH：捆绑 lib/ 仅服务本进程，不污染系统 curl
+    local ok=0
+    for _ in $(seq 1 20); do
+        if env -u LD_LIBRARY_PATH curl -s -o /dev/null -m 3 "http://127.0.0.1:$WAF_PORT/"; then ok=1; break; fi
+        sleep 0.5
+    done
+    [ "$ok" = "1" ] || { err "数据平面未就绪，请查看 logs/waf.log"; exit 1; }
+
+    local IP
+    IP=$(hostname -I 2>/dev/null | awk '{print $1}'); IP=${IP:-127.0.0.1}
+    echo
+    log "================================================"
+    log " 壁垒WAF 已启动（前置代理架构）"
+    log "------------------------------------------------"
+    log " 产品介绍页 : http://$IP:$WAF_PORT/         (门户首页)"
+    log " 攻防演示   : http://$IP:$WAF_PORT/demo     (在线攻击模拟)"
+    if [ -n "${WAF_ADMIN_PORT:-}" ]; then
+        log " 监控大屏   : http://$IP:$WAF_ADMIN_PORT/admin/dashboard  (需登录)"
+        log " 管理后台   : http://$IP:$WAF_ADMIN_PORT/admin    (独立管理端口，登录保护)"
+    else
+        log " 监控大屏   : http://$IP:$WAF_PORT/admin/dashboard  (需登录)"
+        log " 管理后台   : http://$IP:$WAF_PORT/admin   (经 WAF 访问，登录保护)"
+    fi
+    log " 攻击日志   : logs/waf-attack.log"
+    log " 后端端口   : 127.0.0.1:$BACKEND_PORT (仅本机，须经 WAF 访问)"
+    log " 服务管理   : ./waf status | ./waf stop | ./waf restart"
+    log "================================================"
+}
+
+# ---------- start 入口：解析参数 + 按目标平面调度 ----------
+do_start() {
+    local TARGET="all"
+    WAF_PORT=80; HTTPS_PORT=443; BACKEND="127.0.0.1:9000"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -p|--port)    WAF_PORT="${2:-8080}"; shift 2;;
+            -s|--https)   HTTPS_PORT="${2:-8444}"; shift 2;;
+            -b|--backend) BACKEND="${2:-127.0.0.1:9000}"; shift 2;;
+            -a|--admin)   ADMIN_PORT="${2:-9443}"; export WAF_ADMIN_PORT="$ADMIN_PORT"; shift 2;;
+            waf|admin)    TARGET="$1"; shift;;
+            *) err "未知参数: $1"; exit 1;;
+        esac
+    done
+    # -b 兼容两种写法：裸端口（9000）或 host:port（127.0.0.1:9000）
+    case "$BACKEND" in
+        *:*) BACKEND_HOST="${BACKEND%:*}"; BACKEND_PORT="${BACKEND##*:}" ;;
+        *)   BACKEND_HOST="127.0.0.1";     BACKEND_PORT="$BACKEND" ;;
+    esac
+
+    mkdir -p logs
+    ensure_cert
+
+    case "$TARGET" in
+        admin) start_admin_plane ;;
+        waf)   start_waf_plane ;;
+        all)   start_admin_plane; start_waf_plane ;;
+        *)     err "未知目标: $TARGET（应为 waf|admin）"; exit 1 ;;
+    esac
+}
+
+# ============================================================
+# stop：waf stop [waf|admin]（缺省 = 全部平面）
+# ============================================================
+stop_waf_plane() {
+    # 数据平面
+    if pid_alive logs/bileiwaf.pid; then
+        local DPID="$(cat logs/bileiwaf.pid)"
+        ./bin/bileiwaf stop >/dev/null 2>&1
+        sleep 0.5
+        kill -0 "$DPID" 2>/dev/null && kill "$DPID" 2>/dev/null
+        wait_exit "$DPID" "数据平面" 10
+        log "数据平面已停止"
+    else
+        log "数据平面未在运行"
+    fi
+    rm -f logs/bileiwaf.pid
+}
+
+stop_admin_plane() {
+    # 管理平面：pid 文件优先，缺失时按管理/后端端口兜底定位孤儿进程
+    local APID=""
+    if pid_alive logs/admin.pid; then
+        APID="$(cat logs/admin.pid)"
+    else
+        if [ -n "$ADMIN_PORT" ]; then APID=$(pid_on_port "$ADMIN_PORT"); fi
+        if [ -z "$APID" ] && [ -n "${BACKEND_PORT:-}" ]; then APID=$(pid_on_port "$BACKEND_PORT"); fi
+        is_admin_proc "$APID" || APID=""
+        [ -n "$APID" ] && log "管理平面 pid 文件缺失，按端口定位到孤儿进程 (PID $APID)"
+    fi
+    if [ -n "$APID" ]; then
+        kill "$APID" 2>/dev/null
+        wait_exit "$APID" "管理平面" 5
+        log "管理平面已停止"
+    else
+        log "管理平面未在运行"
+    fi
+    rm -f logs/admin.pid
+}
+
+# ---------- stop 入口：解析参数 + 按目标平面调度 ----------
+do_stop() {
+    local TARGET="all"
+    BACKEND="127.0.0.1:9000"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -p|--port)    shift 2;;   # 数据平面端口：stop 无需使用，兼容 start 参数透传
+            -s|--https)   shift 2;;   # HTTPS 端口：同上
+            -b|--backend) BACKEND="${2:-127.0.0.1:9000}"; shift 2;;
+            -a|--admin)   ADMIN_PORT="${2:-}"; [ -n "$ADMIN_PORT" ] && export WAF_ADMIN_PORT="$ADMIN_PORT"; shift 2;;
+            waf|admin|all) TARGET="$1"; shift;;
+            *) err "未知参数: $1"; exit 1;;
+        esac
+    done
+    case "$BACKEND" in
+        *:*) BACKEND_PORT="${BACKEND##*:}" ;;
+        *)   BACKEND_PORT="$BACKEND" ;;
+    esac
+    case "$TARGET" in
+        waf)   stop_waf_plane ;;
+        admin) stop_admin_plane ;;
+        all)   stop_waf_plane; stop_admin_plane ;;
+        *)     err "未知目标: $TARGET（应为 waf|admin）"; exit 1 ;;
+    esac
+}
+
+# ---------- restart：先停目标平面，再带原参数启动 ----------
+do_restart() {
+    do_stop "$@"
+    sleep 1
+    do_start "$@"
+}
+
+# ============================================================
+# status（systemctl 语义：全部运行 exit 0，否则 exit 3）
+# ============================================================
+do_status() {
+    local rc=0 dp="" ap=""
+    if pid_alive logs/bileiwaf.pid; then
+        local dpid="$(cat logs/bileiwaf.pid)"
+        dp="运行中 (PID $dpid, 已运行 $(uptime_of "$dpid"))"
+    else
+        dp="已停止"; rc=3
+    fi
+    if pid_alive logs/admin.pid; then
+        local apid="$(cat logs/admin.pid)"
+        ap="运行中 (PID $apid"
+        # 后端端口取自 bileiwaf-admin 启动参数（argv[1]）
+        local bport
+        bport=$(tr '\0' ' ' < "/proc/$apid/cmdline" 2>/dev/null | awk '{print $2}')
+        case "$bport" in
+            ''|*[!0-9]*) bport="" ;;
+        esac
+        if [ -n "$bport" ]; then
+            if listen_on "$bport" 2>/dev/null; then ap="$ap, 后端 $bport"
+            else ap="$ap, 后端 $bport(未监听)"; rc=3; fi
+        fi
+        if [ -n "$ADMIN_PORT" ]; then
+            if listen_on "$ADMIN_PORT" 2>/dev/null; then ap="$ap, 管理 $ADMIN_PORT"
+            else ap="$ap, 管理 $ADMIN_PORT(未监听)"; rc=3; fi
+        fi
+        ap="$ap, 已运行 $(uptime_of "$apid"))"
+    else
+        ap="已停止"; rc=3
+    fi
+    echo "bileiwaf 数据平面: $dp"
+    echo "bileiwaf 管理平面: $ap"
+    exit $rc
+}
+
+# ============================================================
+# 入口
+# ============================================================
+case "${1:-}" in
+    start)   shift; do_start "$@" ;;
+    stop)    shift; do_stop "$@" ;;
+    restart) shift; do_restart "$@" ;;
+    status)  do_status ;;
+    *)
+        echo "用法: $0 {start|stop|status|restart} [waf|admin] [参数]"
+        echo ""
+        echo "  start [waf|admin] [-p 端口] [-s HTTPS端口] [-b 后端地址:端口] [-a 管理端口]"
+        echo "                        启动服务；waf=仅数据平面，admin=仅管理平面，缺省=全部"
+        echo "  stop  [waf|admin]     停止服务；缺省停止全部平面"
+        echo "  status                查看数据平面与管理平面状态（运行中 exit 0 / 停止 exit 3）"
+        echo "  restart [waf|admin] [参数同 start]  重启服务"
+        exit 1 ;;
+esac

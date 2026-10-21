@@ -1,0 +1,120 @@
+XXE,<!ENTITY,5,block,ENTITY declaration
+XXE,SYSTEM "file:,5,block,System file entity
+XXE,SYSTEM 'file:,5,block,System file entity single quote
+XXE,SYSTEM "http:,5,block,System http entity
+XXE,SYSTEM 'http:,5,block,System http entity single quote
+XXE,SYSTEM "https:,5,block,System https entity
+XXE,SYSTEM 'https:,5,block,System https entity single quote
+XXE,SYSTEM "ftp:,5,block,System ftp entity
+XXE,SYSTEM 'ftp:,5,block,System ftp entity single quote
+XXE,xxe:,5,block,XXE protocol
+XXE,xmlns:xxe,5,block,XXE namespace
+XXE,<!ENTITY % ,5,block,Parameter entity
+XXE,<!ELEMENT ,5,block,Element declaration
+XXE,<!ATTLIST ,5,block,Attribute list declaration
+XXE,<!NOTATION ,5,block,Notation declaration
+XXE,http://xml.org/sax/features/external-general-entities,5,block,External general entities feature
+XXE,http://xml.org/sax/features/external-parameter-entities,5,block,External parameter entities feature
+XXE,file:///etc/shadow,5,block,File protocol shadow
+XXE,file:///etc/hosts,5,block,File protocol hosts
+XXE,jar:file:,5,block,Jar file protocol
+XXE,zip:file:,5,block,Zip file protocol
+XXE,gopher://,5,block,Gopher protocol
+XXE,expect://,5,block,Expect protocol
+XXE,php://filter/convert.base64-encode/resource=,5,block,PHP filter base64
+XXE,php://input,5,block,PHP input wrapper
+XXE,data://text/plain;base64,5,block,Data protocol base64
+XXE,%3C!ENTITY,5,block,Encoded ENTITY declaration
+XXE,%25%3C!ENTITY,5,block,Doubly encoded ENTITY
+XXE,SYSTEM%20%22file:,5,block,Encoded system file entity
+XXE,SYSTEM%20%27file:,5,block,Encoded system file entity single quote
+XXE,%5C%7845%5C%784E%5C%7854%5C%7849%5C%7854%5C%7859,5,block,Unicode encoded ENTITY
+XXE,jar:http:,5,block,Jar http protocol
+XXE,jar:https:,5,block,Jar https protocol
+XXE,netdoc://,5,block,Netdoc protocol
+XXE,mailto://,5,block,Mailto protocol
+XXE,ldap://,5,block,LDAP protocol
+XXE,ldaps://,5,block,LDAPS protocol
+XXE,data:text/xml,5,block,XML data protocol
+XXE,text/xml,5,block,XML content type
+XXE,application/xml,5,block,XML application content type
+XXE,CDATA\\\[,5,block,CDATA section
+XXE,external-parameter-entity,5,block,External parameter entity text
+XXE,external-general-entity,5,block,External general entity text
+XXE,ENTITY%20SYSTEM,5,block,Encoded ENTITY SYSTEM
+XXE,file:///proc/self/environ,5,block,Proc environ path
+XXE,file:///proc/version,5,block,Proc version path
+XXE,file:///var/log/auth.log,5,block,Auth log path
+XXE,file:///var/log/messages,5,block,Messages log path
+XXE,file:///root/.ssh/id_rsa,5,block,SSH private key
+XXE,com.sun.rowset.JdbcRowSetImpl,5,block,Java deserialization XXE
+XXE,org.apache.xerces,5,block,Xerces parser XXE
+XXE,org.xml.sax,5,block,SAX parser XXE
+XXE,javax.xml.parsers,5,block,JAXP parser XXE
+XXE,DocumentBuilderFactory,5,block,DocumentBuilderFactory XXE
+XXE,SAXParserFactory,5,block,SAXParserFactory XXE
+XXE,TransformerFactory,5,block,TransformerFactory XXE
+XXE,XMLReader,5,block,XMLReader XXE
+XXE,SAXReader,5,block,SAXReader XXE
+XXE,DOMParser,5,block,DOMParser XXE
+XXE,XPathFactory,5,block,XPathFactory XXE
+XXE,XSLTProcessor,5,block,XSLTProcessor XXE
+XXE,http://www.w3.org/TR/REC-xml,5,block,W3C XML specification
+XXE,http://www.w3.org/2001/XMLSchema,5,block,W3C XML schema
+XXE,http://www.w3.org/2001/XMLSchema-instance,5,block,XML schema instance
+XXE,http://www.w3.org/1999/XSL/Transform,5,block,XSLT namespace
+XXE,http://schemas.xmlsoap.org/wsdl/,5,block,WSDL namespace
+XXE,http://schemas.xmlsoap.org/soap/envelope/,5,block,SOAP envelope
+XXE,http://www.w3.org/2003/05/soap-envelope,5,block,SOAP 1.2 envelope
+XXE,http://www.w3.org/2004/08/xop/include,5,block,XOP include
+XXE,http://www.w3.org/2005/08/addressing,5,block,WSA namespace
+XXE,http://docs.oasis-open.org/wss/2004/01,5,block,WSS namespace
+XXE,http://www.w3.org/2000/xmlns/,5,block,XMLNS namespace
+XXE,http://www.w3.org/TR/xmlschema-2/,5,block,XML Schema 2
+XXE,http://www.w3.org/TR/xpath/,5,block,XPath spec
+XXE,http://www.w3.org/TR/xslt,5,block,XSLT spec
+XXE,http://www.w3.org/TR/xinclude/,5,block,XInclude spec
+XXE,http://www.w3.org/TR/xmlbase/,5,block,XML Base spec
+XXE,http://www.w3.org/TR/xml-c14n,5,block,XML canonicalization
+XXE,http://www.w3.org/TR/xmldsig-core/,5,block,XML Signature
+XXE,http://www.w3.org/TR/xmlenc-core/,5,block,XML Encryption
+XXE,http://www.w3.org/2001/04/xmlenc#,5,block,XML Encryption namespace
+XXE,http://www.w3.org/2000/09/xmldsig#,5,block,XML DSIG namespace
+XXE,http://www.w3.org/2001/xml-events,5,block,XML Events
+XXE,http://www.apache.org/dtds/,5,block,Apache DTDs
+XXE,http://www.w3.org/DTD/,5,block,W3C DTDs
+XXE,SYSTEM "jar:,5,block,System jar entity
+XXE,SYSTEM 'jar:,5,block,System jar entity single quote
+XXE,SYSTEM "zip:,5,block,System zip entity
+XXE,SYSTEM 'zip:,5,block,System zip entity single quote
+XXE,SYSTEM "gopher:,5,block,System gopher entity
+XXE,SYSTEM 'gopher:,5,block,System gopher entity single quote
+XXE,SYSTEM "expect:,5,block,System expect entity
+XXE,SYSTEM 'expect:,5,block,System expect entity single quote
+XXE,SYSTEM "php:,5,block,System php entity
+XXE,SYSTEM 'php:,5,block,System php entity single quote
+XXE,SYSTEM "data:,5,block,System data entity
+XXE,SYSTEM 'data:,5,block,System data entity single quote
+XXE,SYSTEM "ldap:,5,block,System ldap entity
+XXE,SYSTEM 'ldap:,5,block,System ldap entity single quote
+XXE,SYSTEM "ldaps:,5,block,System ldaps entity
+XXE,SYSTEM 'ldaps:,5,block,System ldaps entity single quote
+XXE,SYSTEM "netdoc:,5,block,System netdoc entity
+XXE,SYSTEM 'netdoc:,5,block,System netdoc entity single quote
+XXE,<!ENTITY xxe,5,block,XXE entity declaration
+XXE,<!ENTITY evil,5,block,Evil entity declaration
+XXE,<!ENTITY hack,5,block,Hack entity declaration
+XXE,<!ENTITY test,5,block,Test entity declaration
+XXE,ENTITY xxe SYSTEM,5,block,XXE entity SYSTEM
+XXE,ENTITY evil SYSTEM,5,block,Evil entity SYSTEM
+XXE,ENTITY hack SYSTEM,5,block,Hack entity SYSTEM
+XXE,ENTITY test SYSTEM,5,block,Test entity SYSTEM
+XXE,%xxe;,5,block,Parameter entity reference
+XXE,%evil;,5,block,Parameter evil reference
+XXE,%hack;,5,block,Parameter hack reference
+XXE,%test;,5,block,Parameter test reference
+XXE,]]>&,5,block,CDATA end with entity
+XXE,]]>&amp;,5,block,CDATA end with amp entity
+XXE,]]>&lt;,5,block,CDATA end with lt entity
+XXE,]]>&gt;,5,block,CDATA end with gt entity
+XXE,<!DOCTYPE\s+\w+\s+SYSTEM\s*"\s*">,5,block,XXE empty SYSTEM

@@ -1,0 +1,20 @@
+# WAF 扫描器 / 渗透工具特征规则
+# 格式: SCAN,正则,严重度,动作,描述
+SCAN,sqlmap,5,block,sqlmap injection tool
+SCAN,nikto,5,block,Nikto web scanner
+SCAN,nessus,5,block,Nessus scanner
+SCAN,nmap,5,block,Nmap port scanner
+SCAN,acunetix,5,block,Acunetix scanner
+SCAN,appscan,5,block,AppScan scanner
+SCAN,masscan,5,block,Masscan port scanner
+SCAN,zgrab,5,block,zgrab scanner
+SCAN,dirbuster,5,block,DirBuster
+SCAN,gobuster,5,block,Gobuster
+SCAN,wfuzz,5,block,Wfuzz fuzzer
+SCAN,ffuf,5,block,ffuf fuzzer
+SCAN,whatweb,5,block,WhatWeb fingerprint
+SCAN,burpcollaborator,5,block,Burp Collaborator
+SCAN,havij,5,block,Havij injection tool
+SCAN,w3af,5,block,w3af scanner
+SCAN,openvas,5,block,OpenVAS scanner
+SCAN,arachni,5,block,Arachni scanner

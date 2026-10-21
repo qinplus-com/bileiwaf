@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>壁垒WAF · 管理后台登录</title>
+<style>
+:root{
+  --bg:#070d1a; --panel:rgba(15,24,44,.72); --line:#1c2f4d; --line2:#27436e;
+  --ink:#e6efff; --muted:#8397b3;
+  --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c;
+  --grad:linear-gradient(135deg,#2563eb,#0e8fb0 55%,#35e0c8);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
+  background-image:
+    radial-gradient(1200px 620px at 50% 6%, rgba(77,163,255,.16), transparent 60%),
+    radial-gradient(900px 520px at 10% 94%, rgba(53,224,200,.10), transparent 60%),
+    radial-gradient(900px 520px at 90% 94%, rgba(157,123,255,.10), transparent 60%),
+    linear-gradient(180deg,#070d1a,#0b1220)}
+/* 网格底纹 */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(rgba(77,163,255,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(77,163,255,.055) 1px,transparent 1px);
+  background-size:52px 52px;
+  -webkit-mask-image:radial-gradient(980px 700px at 50% 42%,#000,transparent 78%);
+  mask-image:radial-gradient(980px 700px at 50% 42%,#000,transparent 78%)}
+/* 旋转光晕 */
+body::after{content:"";position:fixed;left:50%;top:-42%;width:900px;height:900px;transform:translateX(-50%);
+  background:conic-gradient(from 0deg,rgba(53,224,200,.10),rgba(77,163,255,.15),rgba(157,123,255,.10),rgba(53,224,200,.10));
+  filter:blur(72px);pointer-events:none;animation:spin 28s linear infinite}
+@keyframes spin{to{transform:translateX(-50%) rotate(360deg)}}
+
+.login-card{position:relative;z-index:1;width:430px;padding:46px 42px 30px;border-radius:18px;
+  background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--line);
+  box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 40px rgba(37,99,235,.10);
+  animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+/* 顶部渐变描边 */
+.login-card::before{content:"";position:absolute;inset:0;border-radius:18px;padding:1px;
+  background:linear-gradient(135deg,rgba(77,163,255,.75),rgba(53,224,200,.4) 42%,rgba(28,47,77,0) 72%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.85}
+.brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:4px;text-align:center}
+.brand img{width:200px;height:200px;object-fit:contain;
+  filter:drop-shadow(0 0 20px rgba(77,163,255,.45));animation:float 5.5s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-7px)}}
+.brand h1{font-size:21px;letter-spacing:3px;font-weight:700}
+.brand small{display:block;color:var(--cyan);font-size:10px;letter-spacing:4px;margin-top:5px;opacity:.85}
+.sub{text-align:center;color:var(--muted);font-size:12px;margin:12px 0 26px;letter-spacing:2px}
+.sub::before,.sub::after{content:"";display:inline-block;width:34px;height:1px;vertical-align:middle;
+  margin:0 12px;background:linear-gradient(90deg,transparent,var(--line2))}
+.sub::after{background:linear-gradient(270deg,transparent,var(--line2))}
+.fld{margin-bottom:16px}
+.fld label{display:block;font-size:12px;color:var(--muted);margin-bottom:7px;letter-spacing:1px}
+.ipt{position:relative;display:flex;align-items:center}
+.ipt svg{position:absolute;left:13px;width:16px;height:16px;stroke:var(--muted);fill:none;
+  stroke-width:1.6;stroke-linecap:round;pointer-events:none;transition:stroke .2s}
+.ipt:focus-within svg{stroke:var(--cyan)}
+input{width:100%;height:44px;background:rgba(8,14,26,.85);border:1px solid var(--line);
+  border-radius:10px;color:var(--ink);padding:0 14px 0 40px;font-size:14px;outline:none;
+  transition:border-color .2s,box-shadow .2s,background .2s}
+input::placeholder{color:#5b6c86}
+input:hover{border-color:var(--line2)}
+input:focus{border-color:var(--blue);background:rgba(8,14,26,.98);box-shadow:0 0 0 3px rgba(77,163,255,.16)}
+button{cursor:pointer;border:none;border-radius:10px;font-size:14px;font-family:inherit}
+.btn-main{position:relative;width:100%;height:44px;background:var(--grad);color:#fff;font-weight:600;
+  letter-spacing:5px;margin-top:8px;overflow:hidden;
+  box-shadow:0 10px 26px rgba(37,99,235,.35);
+  transition:transform .15s,box-shadow .25s,filter .2s}
+.btn-main:hover{filter:brightness(1.08);box-shadow:0 14px 34px rgba(37,99,235,.5)}
+.btn-main:active{transform:translateY(1px)}
+.btn-main:disabled{opacity:.6;cursor:not-allowed;filter:grayscale(.25)}
+.btn-main::after{content:"";position:absolute;top:0;left:-120%;width:55%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent);
+  transform:skewX(-18deg);animation:sheen 3.6s ease-in-out infinite}
+@keyframes sheen{0%,58%{left:-120%}100%{left:135%}}
+.login-err{min-height:20px;color:var(--red);font-size:12.5px;margin-top:14px;text-align:center;letter-spacing:.5px}
+.foot{margin-top:20px;padding-top:16px;border-top:1px solid rgba(28,47,77,.7);text-align:center;
+  font-size:11px;color:var(--muted);letter-spacing:1px;line-height:1.8}
+.foot b{color:var(--cyan);font-weight:600}
+@media(max-width:520px){.login-card{width:92vw;padding:34px 24px 24px}.brand img{width:150px;height:150px}}
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="brand">
+    <img src="/images/bileiwaf_logo.png" alt="壁垒WAF">
+  </div>
+  <div class="fld"><label for="li_user">用户名</label>
+    <div class="ipt"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+      <input id="li_user" name="user" autocomplete="username" placeholder="请输入用户名" autofocus></div></div>
+  <div class="fld"><label for="li_pass">密码</label>
+    <div class="ipt"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      <input id="li_pass" name="pass" type="password" autocomplete="current-password" placeholder="请输入密码"></div></div>
+  <button class="btn-main" id="li_btn">登 录</button>
+  <div class="login-err" id="li_err"></div>
+  <div class="foot">© 2026 <b>内蒙古勤加软件有限公司</b><br>壁垒WAF BILEIWAF 管理后台</div>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const enc=v=>encodeURIComponent(v==null?"":v);
+async function postForm(path,body){
+  const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
+  return r.json().catch(()=>({success:false,message:"响应解析失败"}));
+}
+async function boot(){
+  try{
+    const r=await fetch("/api/admin/session"); const j=await r.json();
+    if(j&&j.authenticated) location.replace("/admin/dashboard");
+  }catch(e){}
+}
+async function doLogin(){
+  const user=$("li_user").value.trim(), pass=$("li_pass").value;
+  /* 分字段提示：placeholder 仅是提示文字，不代表已输入 */
+  if(!user){ $("li_err").textContent="请输入用户名"; $("li_user").focus(); return; }
+  if(!pass){ $("li_err").textContent="请输入密码"; $("li_pass").focus(); return; }
+  $("li_btn").disabled=true; $("li_err").textContent="";
+  try{
+    const j=await postForm("/api/admin/login","user="+enc(user)+"&pass="+enc(pass));
+    if(j&&j.success) location.replace("/admin/dashboard");
+    /* 服务端错误字段为 error（如 429 失败次数过多），兼容 message */
+    else $("li_err").textContent=(j&&(j.error||j.message))||"用户名或密码错误";
+  }catch(e){ $("li_err").textContent="用户名或密码错误"; }
+  $("li_btn").disabled=false;
+}
+$("li_btn").onclick=doLogin;
+$("li_pass").onkeydown=e=>{ if(e.key==="Enter") doLogin(); };
+$("li_user").onkeydown=e=>{ if(e.key==="Enter") $("li_pass").focus(); };
+boot();
+</script>
+</body>
+</html>

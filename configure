@@ -1,0 +1,446 @@
+#!/bin/sh
+# ============================================================
+# 壁垒WAF (BileiWAF) 配置脚本
+#
+# 标准用法:
+#   ./configure --prefix=/opt/bileiwaf
+#   make
+#   make install
+#
+# 检测项: C 编译器 / pthread / OpenSSL(必需) / libcurl(必需) / json-c(必需)
+#         / libmaxminddb(可选，IP 地理定位；缺失则大屏来源降级不显示)
+# 产物:   Makefile (由 Makefile.in 替换) + include/waf_config.h + config.log
+#
+# 选项:
+#   --prefix=PREFIX         安装根目录（默认 /opt/bileiwaf）
+#   --detection-mode=MODE   默认检测模式 rules|ai|auto（默认 auto，写入
+#                           waf_config.h 编译默认值与 etc/waf.conf 模板）
+#   --admin-port=PORT       管理平面端口，写入 etc/waf.conf 模板的 admin_port 键
+#   --admin-dir=NAME        管理界面目录名（默认 adminui），写入 etc/admin.conf
+#                           模板 admin_dir 键，并决定 make install 的安装目录名
+#   --admin-user=NAME       初始管理员账号（默认 admin，写入 etc/admin.conf 模板；
+#                           仅首次安装生效，现场已有 admin.conf 不覆盖）
+#   --admin-password=PASS   初始管理员密码（默认 admin123，configure 随机加盐
+#                           sha256 后写入模板，明文不落盘）
+#   --with-openssl=DIR      OpenSSL 安装前缀（含 include/ 与 lib/ 或 lib64/）
+#   --with-curl=DIR         libcurl 安装前缀
+#   --with-json-c=DIR       json-c 安装前缀
+#   --with-geoip=DIR        libmaxminddb 安装前缀（可选）
+#   --geoip-db=PATH         GeoIP 数据文件路径，写入 etc/waf.conf 的 geoip_db 键
+#   CC=... CFLAGS=...       透传编译器变量
+# ============================================================
+set -u
+
+# ---------- 默认值 ----------
+PREFIX=/opt/bileiwaf
+DETECTION_MODE=auto
+ADMIN_PORT=""
+ADMIN_DIR="adminui"
+ADMIN_USER=""
+ADMIN_PASSWORD=""
+OPENSSL_DIR=""
+CURL_DIR=""
+JSONC_DIR=""
+GEOIP_DIR=""
+GEOIP_DB=""
+USER_CFLAGS="${CFLAGS:-}"
+
+for arg in "$@"; do
+    case "$arg" in
+        --prefix=*)        PREFIX="${arg#*=}" ;;
+        --detection-mode=*) DETECTION_MODE="${arg#*=}" ;;
+        --admin-port=*)    ADMIN_PORT="${arg#*=}" ;;
+        --admin-dir=*)     ADMIN_DIR="${arg#*=}" ;;
+        --admin-user=*)    ADMIN_USER="${arg#*=}" ;;
+        --admin-password=*) ADMIN_PASSWORD="${arg#*=}" ;;
+        --with-openssl=*)  OPENSSL_DIR="${arg#*=}" ;;
+        --with-curl=*)     CURL_DIR="${arg#*=}" ;;
+        --with-json-c=*)   JSONC_DIR="${arg#*=}" ;;
+        --with-geoip=*)    GEOIP_DIR="${arg#*=}" ;;
+        --geoip-db=*)      GEOIP_DB="${arg#*=}" ;;
+        --help|-h)
+            sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0 ;;
+        CC=*)              CC="${arg#*=}" ;;
+        CFLAGS=*)          USER_CFLAGS="${arg#*=}" ;;
+        *) echo "configure: 未知参数: $arg" >&2; exit 1 ;;
+    esac
+done
+
+CC="${CC:-gcc}"
+CFLAGS_BASE="-Wall -Wextra -O2"
+[ -n "$USER_CFLAGS" ] && CFLAGS_BASE="$USER_CFLAGS"
+
+# ---------- 检测模式校验 ----------
+case "$DETECTION_MODE" in
+    rules) MODE_ENUM="DETECTION_MODE_RULES" ;;
+    ai)    MODE_ENUM="DETECTION_MODE_AI" ;;
+    auto)  MODE_ENUM="DETECTION_MODE_AUTO" ;;
+    *) echo "configure: 非法 --detection-mode: $DETECTION_MODE（应为 rules|ai|auto）" >&2; exit 1 ;;
+esac
+
+# ---------- 管理平面配置校验 ----------
+case "$ADMIN_PORT" in
+    "") ;;
+    *[!0-9]*|""|[0]*) echo "configure: 非法 --admin-port: $ADMIN_PORT（应为 1-65535 数字）" >&2; exit 1 ;;
+esac
+case "$ADMIN_DIR" in
+    ""|*..*|*[!a-zA-Z0-9._-]*|.*|*.) echo "configure: 非法 --admin-dir: $ADMIN_DIR（仅字母/数字/./-/_，不得以 . 开头结尾）" >&2; exit 1 ;;
+esac
+ADMIN_USER="${ADMIN_USER:-admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
+case "$ADMIN_USER" in
+    ""|*[!a-zA-Z0-9._-]*) echo "configure: 非法 --admin-user: $ADMIN_USER（仅字母/数字/./-/_）" >&2; exit 1 ;;
+esac
+if printf '%s' "$ADMIN_PASSWORD" | grep -qE '[[:space:]]'; then
+    echo "configure: 非法 --admin-password: 不得含空白字符" >&2; exit 1
+fi
+
+LOG=config.log
+: > "$LOG"
+TMPDIR_CONF="$(mktemp -d "${TMPDIR:-/tmp}/bileiwaf-conf.XXXXXX")" || exit 1
+trap 'rm -rf "$TMPDIR_CONF"' EXIT INT TERM
+
+PASS=0; FAIL=0
+# check_cc "说明" cflags ldflags "测试代码" 成功时 echo 出可用 flags
+last_cflags=""; last_ldflags=""
+check() {
+    _desc="$1"; _cf="$2"; _ld="$3"; _code="$4"
+    printf '%s' "$_code" > "$TMPDIR_CONF/t.c"
+    echo "---- 测试: $_desc" >> "$LOG"
+    echo "$CC $_cf t.c -o t $_ld" >> "$LOG"
+    if (cd "$TMPDIR_CONF" && $CC $_cf t.c -o t $_ld) >>"$LOG" 2>&1; then
+        echo "[configure]   $_desc: 是"
+        PASS=$((PASS+1)); last_cflags="$_cf"; last_ldflags="$_ld"; return 0
+    else
+        echo "[configure]   $_desc: 否"
+        FAIL=$((FAIL+1)); return 1
+    fi
+}
+
+die() {
+    echo ""
+    echo "configure: 错误: $*" >&2
+    echo "详见 config.log" >&2
+    exit 1
+}
+
+echo "[configure] 壁垒WAF 构建配置"
+echo "[configure] 安装前缀: $PREFIX"
+
+# ---------- 1. 编译器 ----------
+echo "[configure] 检测 C 编译器 ..."
+check "C 编译器 ($CC)" "$CFLAGS_BASE" "" "int main(void){return 0;}" \
+    || die "找不到可用 C 编译器: $CC（可 CC=clang ./configure ...）"
+
+# ---------- 1.5 C99 模式 ----------
+# 源码含 for 循环内声明变量等 C99 语法；老 gcc（如 4.8，默认 gnu89）必须显式 -std
+echo "[configure] 检测 C99 模式 ..."
+if check "C99 (-std=gnu99)" "$CFLAGS_BASE -std=gnu99" "" \
+'int main(void){int s=0; for(int i=0;i<2;i++){s+=i;} return s;}' 2>/dev/null; then
+    CFLAGS_BASE="$CFLAGS_BASE -std=gnu99"
+elif check "C99 (-std=c99)" "$CFLAGS_BASE -std=c99" "" \
+'int main(void){int s=0; for(int i=0;i<2;i++){s+=i;} return s;}' 2>/dev/null; then
+    CFLAGS_BASE="$CFLAGS_BASE -std=c99"
+else
+    check "C99（编译器默认模式）" "$CFLAGS_BASE" "" \
+'int main(void){int s=0; for(int i=0;i<2;i++){s+=i;} return s;}' \
+        || die "编译器不支持 C99（for 循环内声明），请升级 gcc ≥ 4.5 或使用 clang"
+fi
+
+# ---------- 2. pthread ----------
+echo "[configure] 检测 pthread ..."
+PTHREAD_CFLAGS="-pthread"; PTHREAD_LIBS="-pthread"
+check "pthread (-pthread)" "$CFLAGS_BASE -pthread" "-pthread" \
+    '#include <pthread.h>
+int main(void){ pthread_t t; (void)pthread_self(); (void)t; return 0; }' \
+    || { PTHREAD_CFLAGS=""; PTHREAD_LIBS="-lpthread";
+         check "pthread (-lpthread)" "$CFLAGS_BASE" "-lpthread" \
+'#include <pthread.h>
+int main(void){ (void)pthread_self(); return 0; }' \
+         || die "缺少 pthread 支持"; }
+
+# ---------- 3. OpenSSL（必需）----------
+echo "[configure] 检测 OpenSSL（HTTPS 前置卸载必需）..."
+SSL_CFLAGS=""; SSL_LIBS=""
+ssl_tried=""
+if [ -n "$OPENSSL_DIR" ]; then
+    for libsub in lib64 lib; do
+        [ -d "$OPENSSL_DIR/$libsub" ] || continue
+        rp=""
+        case ":$LD_LIBRARY_PATH:" in *":$OPENSSL_DIR/$libsub:"*) ;; *) rp="-Wl,-rpath,$OPENSSL_DIR/$libsub";; esac
+        if check "OpenSSL ($OPENSSL_DIR/$libsub)" \
+            "$CFLAGS_BASE -I$OPENSSL_DIR/include" \
+            "-L$OPENSSL_DIR/$libsub $rp -lssl -lcrypto" \
+'#include <openssl/ssl.h>
+#include <openssl/err.h>
+int main(void){ SSL_library_init(); OpenSSL_add_all_algorithms(); return 0; }'; then
+            SSL_CFLAGS="-I$OPENSSL_DIR/include"
+            SSL_LIBS="-L$OPENSSL_DIR/$libsub $rp -lssl -lcrypto"
+            break
+        fi
+    done
+else
+    # 优先 pkg-config
+    if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists openssl 2>/dev/null; then
+        pc_cf="$(pkg-config --cflags openssl)"
+        pc_ld="$(pkg-config --libs openssl)"
+        if check "OpenSSL (pkg-config)" "$CFLAGS_BASE $pc_cf" "$pc_ld" \
+'#include <openssl/ssl.h>
+int main(void){ SSL_library_init(); return 0; }'; then
+            SSL_CFLAGS="$pc_cf"; SSL_LIBS="$pc_ld"
+        fi
+    fi
+    # 退回标准路径
+    if [ -z "$SSL_LIBS" ] && check "OpenSSL (系统路径 -lssl -lcrypto)" \
+            "$CFLAGS_BASE" "-lssl -lcrypto" \
+'#include <openssl/ssl.h>
+int main(void){ SSL_library_init(); return 0; }'; then
+        SSL_CFLAGS=""; SSL_LIBS="-lssl -lcrypto"
+    fi
+fi
+[ -n "$SSL_LIBS" ] || die "未检测到 OpenSSL 开发文件（openssl/ssl.h + libssl）。
+        RHEL/CentOS: yum install openssl-devel
+        Debian/Ubuntu: apt-get install libssl-dev
+        自定义路径: ./configure --with-openssl=/path/to/openssl"
+
+# ---------- 4. libcurl（必需：翻译模块 HTTP 客户端）----------
+echo "[configure] 检测 libcurl ..."
+CURL_CFLAGS=""; CURL_LIBS=""
+if [ -n "$CURL_DIR" ]; then
+    for libsub in lib64 lib; do
+        [ -d "$CURL_DIR/$libsub" ] || continue
+        rp=""
+        case ":$LD_LIBRARY_PATH:" in *":$CURL_DIR/$libsub:"*) ;; *) rp="-Wl,-rpath,$CURL_DIR/$libsub";; esac
+        if check "libcurl ($CURL_DIR/$libsub)" \
+            "$CFLAGS_BASE -I$CURL_DIR/include" \
+            "-L$CURL_DIR/$libsub $rp -lcurl" \
+'#include <curl/curl.h>
+int main(void){ curl_easy_init(); return 0; }'; then
+            CURL_CFLAGS="-I$CURL_DIR/include"
+            CURL_LIBS="-L$CURL_DIR/$libsub $rp -lcurl"; break
+        fi
+    done
+else
+    if command -v curl-config >/dev/null 2>&1; then
+        cc_cf="$(curl-config --cflags 2>/dev/null)"; cc_ld="$(curl-config --libs 2>/dev/null)"
+        if check "libcurl (curl-config)" "$CFLAGS_BASE $cc_cf" "$cc_ld" \
+'#include <curl/curl.h>
+int main(void){ curl_easy_init(); return 0; }'; then
+            CURL_CFLAGS="$cc_cf"; CURL_LIBS="$cc_ld"
+        fi
+    fi
+    if [ -z "$CURL_LIBS" ] && command -v pkg-config >/dev/null 2>&1 && \
+        pkg-config --exists libcurl 2>/dev/null; then
+        pc_cf="$(pkg-config --cflags libcurl)"; pc_ld="$(pkg-config --libs libcurl)"
+        if check "libcurl (pkg-config)" "$CFLAGS_BASE $pc_cf" "$pc_ld" \
+'#include <curl/curl.h>
+int main(void){ curl_easy_init(); return 0; }'; then
+            CURL_CFLAGS="$pc_cf"; CURL_LIBS="$pc_ld"
+        fi
+    fi
+    if [ -z "$CURL_LIBS" ] && check "libcurl (系统路径 -lcurl)" "$CFLAGS_BASE" "-lcurl" \
+'#include <curl/curl.h>
+int main(void){ curl_easy_init(); return 0; }'; then
+        CURL_LIBS="-lcurl"
+    fi
+fi
+[ -n "$CURL_LIBS" ] || die "未检测到 libcurl 开发文件（curl/curl.h + libcurl）。
+        RHEL/CentOS: yum install libcurl-devel
+        Debian/Ubuntu: apt-get install libcurl4-openssl-dev
+        自定义路径: ./configure --with-curl=/path/to/curl"
+
+# ---------- 5. json-c（必需：翻译响应对解析）----------
+echo "[configure] 检测 json-c ..."
+JSONC_CFLAGS=""; JSONC_LIBS=""
+if [ -n "$JSONC_DIR" ]; then
+    for libsub in lib64 lib; do
+        [ -d "$JSONC_DIR/$libsub" ] || continue
+        rp=""
+        case ":$LD_LIBRARY_PATH:" in *":$JSONC_DIR/$libsub:"*) ;; *) rp="-Wl,-rpath,$JSONC_DIR/$libsub";; esac
+        if check "json-c ($JSONC_DIR/$libsub)" \
+            "$CFLAGS_BASE -I$JSONC_DIR/include" \
+            "-L$JSONC_DIR/$libsub $rp -ljson-c" \
+'#include <json-c/json.h>
+int main(void){ json_object *o = json_object_new_object(); (void)o; return 0; }'; then
+            JSONC_CFLAGS="-I$JSONC_DIR/include"
+            JSONC_LIBS="-L$JSONC_DIR/$libsub $rp -ljson-c"; break
+        fi
+    done
+else
+    if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists json-c 2>/dev/null; then
+        pc_cf="$(pkg-config --cflags json-c)"; pc_ld="$(pkg-config --libs json-c)"
+        if check "json-c (pkg-config)" "$CFLAGS_BASE $pc_cf" "$pc_ld" \
+'#include <json-c/json.h>
+int main(void){ json_object *o = json_object_new_object(); (void)o; return 0; }'; then
+            JSONC_CFLAGS="$pc_cf"; JSONC_LIBS="$pc_ld"
+        fi
+    fi
+    if [ -z "$JSONC_LIBS" ] && check "json-c (系统路径 -ljson-c)" "$CFLAGS_BASE" "-ljson-c" \
+'#include <json-c/json.h>
+int main(void){ json_object *o = json_object_new_object(); (void)o; return 0; }'; then
+        JSONC_LIBS="-ljson-c"
+    fi
+fi
+[ -n "$JSONC_LIBS" ] || die "未检测到 json-c 开发文件（json-c/json.h + libjson-c）。
+        RHEL/CentOS: yum install json-c-devel
+        Debian/Ubuntu: apt-get install libjson-c-dev
+        自定义路径: ./configure --with-json-c=/path/to/json-c"
+
+# ---------- 6b. libmaxminddb（可选：管理平面 IP 地理定位） ----------
+# 缺失不致命：管理平面降级运行，大屏攻击来源显示为「—」。
+# 仅需头文件：运行期 dlopen("libmaxminddb.so.0")，不产生 DT_NEEDED 依赖；
+# 目标机未安装该库时管理平面照常启动，仅大屏 IP 来源降级显示。
+GEOIP_CFLAGS=""; GEOIP_LIBS="-ldl"
+GEOIP_TEST='#include <maxminddb.h>
+int main(void){ MMDB_s mm; return (int)sizeof(mm) + MMDB_MODE_MMAP; }'
+GEOIP_FOUND=0
+if [ -n "$GEOIP_DIR" ] && check "libmaxminddb 头文件 ($GEOIP_DIR/include)" \
+    "$CFLAGS_BASE -I$GEOIP_DIR/include" "-ldl" "$GEOIP_TEST"; then
+    GEOIP_CFLAGS="-I$GEOIP_DIR/include"; GEOIP_FOUND=1
+fi
+if [ "$GEOIP_FOUND" = 0 ] && command -v pkg-config >/dev/null 2>&1 && \
+   pkg-config --exists libmaxminddb 2>/dev/null; then
+    pc_cf="$(pkg-config --cflags libmaxminddb 2>/dev/null)"
+    if check "libmaxminddb 头文件 (pkg-config)" "$CFLAGS_BASE $pc_cf" "-ldl" "$GEOIP_TEST"; then
+        GEOIP_CFLAGS="$pc_cf"; GEOIP_FOUND=1
+    fi
+fi
+if [ "$GEOIP_FOUND" = 0 ] && check "libmaxminddb 头文件 (系统路径)" \
+    "$CFLAGS_BASE" "-ldl" "$GEOIP_TEST"; then
+    GEOIP_FOUND=1
+fi
+if [ "$GEOIP_FOUND" = 1 ]; then
+    GEOIP_CFLAGS="-DHAVE_MAXMINDDB $GEOIP_CFLAGS"
+else
+    echo "[configure]   libmaxminddb: 否（大屏 IP 来源将降级显示）"
+fi
+
+# ---------- 6. libm / -rdynamic ----------
+MATH_LIBS=""
+check "libm (-lm)" "$CFLAGS_BASE" "-lm" 'int main(void){ return (int)sqrt(4.0); }' && MATH_LIBS="-lm"
+HAVE_RDYNAMIC=0
+check "链接器 -rdynamic" "$CFLAGS_BASE" "-rdynamic" 'int main(void){return 0;}' && HAVE_RDYNAMIC=1
+RDYNAMIC_FLAG=""; [ "$HAVE_RDYNAMIC" = "1" ] && RDYNAMIC_FLAG="-rdynamic"
+
+# ---------- 版本号 ----------
+VERSION="1.0.0"
+[ -f .version ] && VERSION="$(cat .version)"
+
+# ---------- 生成 include/waf_config.h ----------
+mkdir -p include
+cat > include/waf_config.h <<EOF
+/* 由 configure 自动生成，请勿手改 */
+#ifndef WAF_CONFIG_H
+#define WAF_CONFIG_H
+
+#define HAVE_OPENSSL 1
+#define HAVE_LIBCURL 1
+#define HAVE_JSON_C  1
+#define WAF_PREFIX "$PREFIX"
+#define WAF_CONFIG_VERSION "$VERSION"
+
+/* 编译期默认检测模式（waf.conf 的 detection_mode 键可覆盖） */
+#define WAF_DEFAULT_DETECTION_MODE $MODE_ENUM
+
+#endif /* WAF_CONFIG_H */
+EOF
+
+# ---------- 同步配置模板 etc/waf.conf 的默认模式与管理端口 ----------
+# 新装环境由 make install 拷贝该模板；已存在的现场配置不会被覆盖
+if [ -f etc/waf.conf ]; then
+    sed -i "s/^detection_mode *= *.*/detection_mode = $DETECTION_MODE/" etc/waf.conf
+    if [ -n "$ADMIN_PORT" ]; then
+        if grep -q '^[[:space:]]*admin_port' etc/waf.conf; then
+            sed -i "s/^\([[:space:]]*\)admin_port[[:space:]]*=.*/\1admin_port = $ADMIN_PORT/" etc/waf.conf
+        else
+            printf '\n# 管理平面端口（管理后台/监控大屏独立监听；0 或缺省 = 不开启独立管理平面）\nadmin_port = %s\n' \
+                "$ADMIN_PORT" >> etc/waf.conf
+        fi
+    fi
+    if [ -n "$GEOIP_DB" ]; then
+        if grep -q '^[[:space:]]*geoip_db' etc/waf.conf; then
+            sed -i "s|^[[:space:]]*geoip_db *= *.*|geoip_db = $GEOIP_DB|" etc/waf.conf
+        else
+            printf '\n# IP 地理库（libmaxminddb MMDB；City 优先，缺失自动降级 Country）\ngeoip_db = %s\n' \
+                "$GEOIP_DB" >> etc/waf.conf
+        fi
+    fi
+fi
+
+# ---------- 生成管理后台配置模板 etc/admin.conf ----------
+# make install 拷贝到 <prefix>/config/admin.conf（已存在则保留——升级不冲掉现场账号）。
+# 密码仅以 sha256(salt+password) 落盘，明文不保存。
+SALT=$( (command -v od >/dev/null 2>&1 && head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n') \
+        || head -c 16 /dev/urandom | sha256sum | cut -c1-32 )
+HASH=$(printf '%s' "${SALT}${ADMIN_PASSWORD}" | sha256sum | cut -d' ' -f1)
+if [ ! -f etc/admin.conf ] || ! grep -q '^password_hash' etc/admin.conf 2>/dev/null; then
+    cat > etc/admin.conf <<EOF
+# 壁垒WAF 管理后台账号（password_hash = sha256(password_salt + password)）
+# 由 configure 生成：--admin-user / --admin-password / --admin-dir 可自定义
+user = $ADMIN_USER
+password_salt = $SALT
+password_hash = $HASH
+# 管理界面目录（WAF_HOME 下独立于 web/ 的目录名，须与 --admin-dir 一致）
+admin_dir = $ADMIN_DIR
+EOF
+    chmod 600 etc/admin.conf
+    echo "[configure] 已生成 etc/admin.conf 模板（管理员: $ADMIN_USER）"
+else
+    sed -i "s/^admin_dir *=.*/admin_dir = $ADMIN_DIR/" etc/admin.conf
+    echo "[configure] 保留现有 etc/admin.conf 账号，仅同步 admin_dir = $ADMIN_DIR"
+fi
+
+# ---------- 变量替换生成 Makefile ----------
+# 使用 awk 做字面量替换，避免 sed 特殊字符问题
+awk -v prefix="$PREFIX" \
+    -v adminuidir="$ADMIN_DIR" \
+    -v cc="$CC" \
+    -v cflags="$CFLAGS_BASE" \
+    -v pthread_cf="$PTHREAD_CFLAGS" -v pthread_ld="$PTHREAD_LIBS" \
+    -v ssl_cf="$SSL_CFLAGS" -v ssl_ld="$SSL_LIBS" \
+    -v curl_cf="$CURL_CFLAGS" -v curl_ld="$CURL_LIBS" \
+    -v jsonc_cf="$JSONC_CFLAGS" -v jsonc_ld="$JSONC_LIBS" \
+    -v geoip_cf="$GEOIP_CFLAGS" -v geoip_ld="$GEOIP_LIBS" \
+    -v math_ld="$MATH_LIBS" -v rdynamic="$RDYNAMIC_FLAG" \
+    -v version="$VERSION" \
+'{
+ gsub(/@PREFIX@/, prefix);
+ gsub(/@ADMIN_UI_DIR@/, adminuidir);
+ gsub(/@CC@/, cc);
+ gsub(/@BASE_CFLAGS@/, cflags);
+ gsub(/@PTHREAD_CFLAGS@/, pthread_cf);
+ gsub(/@PTHREAD_LIBS@/, pthread_ld);
+ gsub(/@SSL_CFLAGS@/, ssl_cf);
+ gsub(/@SSL_LIBS@/, ssl_ld);
+ gsub(/@CURL_CFLAGS@/, curl_cf);
+ gsub(/@CURL_LIBS@/, curl_ld);
+ gsub(/@JSONC_CFLAGS@/, jsonc_cf);
+ gsub(/@JSONC_LIBS@/, jsonc_ld);
+ gsub(/@GEOIP_CFLAGS@/, geoip_cf);
+ gsub(/@GEOIP_LIBS@/, geoip_ld);
+ gsub(/@MATH_LIBS@/, math_ld);
+ gsub(/@RDYNAMIC@/, rdynamic);
+ gsub(/@VERSION@/, version);
+ print
+}' Makefile.in > Makefile
+chmod +x Makefile 2>/dev/null || true
+
+cat <<EOF
+
+[configure] ------------------------------------------------
+[configure] 配置完成:
+[configure]   前缀      : $PREFIX
+[configure]   检测模式  : $DETECTION_MODE ($MODE_ENUM)
+[configure]   管理端口  : ${ADMIN_PORT:-未指定（独立管理平面不开启）}
+[configure]   管理目录  : $ADMIN_DIR
+[configure]   管理员    : $ADMIN_USER
+[configure]   编译器    : $CC
+[configure]   OpenSSL   : $SSL_CFLAGS $SSL_LIBS
+[configure]   libcurl   : $CURL_CFLAGS $CURL_LIBS
+[configure]   json-c    : $JSONC_CFLAGS $JSONC_LIBS
+[configure]   maxminddb : ${GEOIP_CFLAGS:-未检测到（IP 来源降级）} ${GEOIP_LIBS}
+[configure]   pthread   : $PTHREAD_LIBS
+[configure] 下一步: make && make install
+[configure] ------------------------------------------------
+EOF

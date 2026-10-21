@@ -1,0 +1,37 @@
+# ---- 构建产物 ----
+/Makefile
+/config.log
+/build/
+/bin/
+include/version.h
+include/waf_config.h
+*.o
+*.a
+*.so
+*.d
+
+# ---- 运行期数据（含敏感配置/日志/证书，严禁入库）----
+/config/
+# 由 configure 生成（含初始管理员口令哈希），不入库
+/etc/admin.conf
+/logs/
+/data/
+/certs/
+rules/whitelist.ip.bak
+rules.bak.*
+
+# ---- GeoIP 数据库（MaxMind 许可，需自行下载）----
+/geoip/*.mmdb
+
+# ---- 发行产物 ----
+/dist/
+*.rpm
+*.tar.gz
+
+# ---- 编辑器与系统文件 ----
+*.swp
+*.swo
+*~
+.DS_Store
+.idea/
+.vscode/

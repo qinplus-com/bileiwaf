@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>壁垒WAF - 攻防演示控制台</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.85); --line:#1c2f4d;
+  --txt:#d8e4f5; --dim:#7d8fa8; --cyan:#35e0c8; --green:#34d399;
+  --red:#ff5d6c; --amber:#ffb454; --blue:#4da3ff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;line-height:1.6;
+  background-image:
+    radial-gradient(1200px 500px at 50% -10%, rgba(77,163,255,.10), transparent 60%),
+    radial-gradient(900px 420px at 100% 110%, rgba(53,224,200,.06), transparent 60%),
+    radial-gradient(900px 420px at 0% 110%, rgba(157,123,255,.05), transparent 60%);
+  background-attachment:fixed;
+}
+/* 顶栏导航（与首页/报告统一） */
+.nav{position:sticky;top:0;z-index:100;background:rgba(11,18,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;height:72px;max-width:1180px;margin:0 auto;padding:0 20px}
+.nav-logo{display:flex;align-items:center;gap:12px;font-size:20px;font-weight:700;color:var(--txt);text-decoration:none}
+.nav-logo img{width:200px;height:200px;object-fit:contain}
+.nav-logo small{font-size:11px;color:var(--dim);font-weight:400;letter-spacing:2px}
+.nav-links{margin-left:auto;display:flex;gap:6px;align-items:center}
+.nav-links a{padding:7px 14px;border-radius:8px;font-size:14px;color:var(--dim);text-decoration:none;transition:.2s}
+.nav-links a:hover{color:var(--cyan);background:rgba(53,224,200,.08)}
+.nav-links .cta{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff!important;font-weight:600}
+.nav-links .cta:hover{filter:brightness(1.15)}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{width:200px;height:200px;flex:none;object-fit:contain}
+h1{font-size:24px;letter-spacing:.5px}
+h1 small{display:block;font-size:12px;color:var(--dim);font-weight:400;letter-spacing:2px}
+.pills{display:flex;gap:10px;flex-wrap:wrap}
+.pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12.5px;color:var(--dim)}
+.pill b{color:var(--txt);font-weight:600}
+.pill .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--dim)}
+.pill.ok .dot{background:var(--green)} .pill.err .dot{background:var(--red)}
+h2{font-size:16px;margin:30px 0 12px;display:flex;align-items:center;gap:8px}
+h2::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--cyan);display:inline-block}
+h2 .tip{font-size:12px;color:var(--dim);font-weight:400;margin-left:6px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat .num{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .lbl{font-size:12px;color:var(--dim);margin-top:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.card .hd{display:flex;align-items:center;gap:10px}
+.card .ico{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;background:rgba(34,211,238,.12)}
+.card .nm{font-weight:600;font-size:14.5px}
+.card .ds{font-size:12px;color:var(--dim);margin-top:1px}
+.code{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#a5c3e8;word-break:break-all;white-space:pre-wrap;min-height:20px}
+.btn{align-self:flex-start;background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff;border:none;border-radius:9px;padding:9px 20px;font-size:13.5px;cursor:pointer;font-weight:600;transition:.15s}
+.btn:hover{filter:brightness(1.15)} .btn:disabled{opacity:.5;cursor:wait}
+.res{font-size:12.5px;min-height:20px}
+.res.block{color:var(--red)} .res.pass{color:var(--green)} .res.info{color:var(--dim)}
+.res b{font-weight:700}
+.cc{background:linear-gradient(180deg,rgba(251,191,36,.08),var(--panel));border-color:rgba(251,191,36,.35)}
+.cc .hd .ico{background:rgba(251,191,36,.15)}
+.warn{font-size:12px;color:var(--amber);background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.4);border-radius:8px;padding:8px 10px}
+.ccrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ccrow input{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 10px;width:90px;font-size:13px}
+.bar{height:8px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--amber));transition:.3s}
+pre.log{background:#060b16;border:1px solid var(--line);border-radius:12px;padding:14px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:#93a8c9;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+pre.log .hit{color:var(--red)}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.feat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12.5px}
+.feat b{display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:3px}
+.feat span{color:var(--dim)}
+footer{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;font-size:12px;color:var(--dim)}
+footer .code{margin-top:8px}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="nav-in">
+  <a class="nav-logo" href="/"><img src="/images/bileiwaf_logo.png" alt="壁垒WAF"></a>
+  <div class="nav-links">
+    <a href="/">网站首页</a>
+    <a href="/screen.html">大屏演示</a>
+    <a href="/report.html">测试报告</a>
+    <a class="cta" href="/demo">攻防演示</a>
+  </div>
+</div></nav>
+<div class="wrap">
+
+<header>
+  <h1>WAF 功能演示控制台<small>WEB APPLICATION FIREWALL · LIVE DEMO</small></h1>
+  <div class="pills">
+    <span class="pill" id="pill-mode">模式 <b>检测中…</b></span>
+    <span class="pill" id="pill-backend"><span class="dot"></span>后端状态</span>
+    <span class="pill" id="pill-uptime">运行 <b>-</b></span>
+  </div>
+</header>
+
+<h2>实时统计 <span class="tip">本次演示会话</span></h2>
+<div class="stats">
+  <div class="stat"><div class="num" id="st-total">0</div><div class="lbl">发送请求总数</div></div>
+  <div class="stat"><div class="num" id="st-block" style="color:var(--red)">0</div><div class="lbl">WAF 拦截（403）</div></div>
+  <div class="stat"><div class="num" id="st-pass" style="color:var(--green)">0</div><div class="lbl">正常放行（200）</div></div>
+  <div class="stat"><div class="num" id="st-rate">0%</div><div class="lbl">拦截率</div></div>
+</div>
+
+<h2>攻击模拟器 <span class="tip">点击按钮，经 WAF 向后端发起真实请求，观察拦截效果</span></h2>
+<div class="grid" id="atk-grid"></div>
+
+<h2>CC 攻击压测 <span class="tip">HTTP 洪水 / 频率限制演示</span></h2>
+<div class="card cc">
+  <div class="hd"><div class="ico">🌊</div><div><div class="nm">CC 频率限制（Rate Limiting）</div><div class="ds">向 WAF 高并发发送大量请求，超过阈值后该 IP 将被封禁</div></div></div>
+  <div class="warn">⚠ 注意：触发封禁后，本机 IP 将被暂时封锁（演示配置 60 秒后自动解封，重启演示服务可立即解封），期间页面所有请求都会被拦截，建议将本测试放在最后执行。</div>
+  <div class="ccrow">
+    <label>请求数 <input id="cc-num" type="number" value="40" min="10" max="500"></label>
+    <label>并发 <input id="cc-conc" type="number" value="25" min="1" max="50"></label>
+    <button class="btn" id="cc-btn" style="background:linear-gradient(135deg,#d97706,#dc2626)">发起 CC 攻击</button>
+  </div>
+  <div class="bar"><i id="cc-bar"></i></div>
+  <div class="res info" id="cc-res">等待发起…（演示阈值：60 秒内 30 次请求触发封禁）</div>
+</div>
+
+<h2>WAF 攻击日志 <span class="tip">读取 WAF 实时攻击日志（每 4 秒刷新）</span></h2>
+<pre class="log" id="logbox">正在加载攻击日志…</pre>
+
+<h2>功能总览</h2>
+<div class="fgrid">
+  <div class="feat"><b>🎯 规则检测引擎</b><span>SQL 注入 / XSS / 命令注入 / 路径穿越 / XXE / SSRF 等多类攻击规则，POSIX 正则匹配，支持热加载</span></div>
+  <div class="feat"><b>🧠 AI 智能检测</b><span>机器学习模型（孤立森林 / 随机森林 / 自编码器）与规则引擎混合双擎检测</span></div>
+  <div class="feat"><b>🌊 CC 攻击防护</b><span>基于滑动时间窗的 IP 请求频率限制，超限自动封禁，支持白名单豁免</span></div>
+  <div class="feat"><b>🚫 IP 黑白名单</b><span>IP 级访问控制，秒级生效，扫描器 / 爬虫 UA 特征识别</span></div>
+  <div class="feat"><b>🔒 SSL/TLS 卸载</b><span>HTTPS 终结与证书管理，支持 Let's Encrypt 自动签发与续期</span></div>
+  <div class="feat"><b>🌐 多站点防护</b><span>一台 WAF 同时代理防护多个域名，站点独立配置与日志</span></div>
+  <div class="feat"><b>🖥️ 系统监控大屏</b><span>内置监控大屏：攻击态势总览、实时攻击事件、TOP 源与规则统计可视化</span></div>
+  <div class="feat"><b>📋 多维日志审计</b><span>攻击日志 / 访问日志 / 审计日志 / 错误日志，完整请求上下文记录</span></div>
+  <div class="feat"><b>⚡ 高性能架构</b><span>C 语言多线程 + 连接池 + epoll 事件驱动，低延迟反向代理</span></div>
+  <div class="feat"><b>🛠 三种工作模式</b><span>学习模式（只告警）→ 检测模式（告警+记录）→ 阻断模式（实时拦截）</span></div>
+  <div class="feat"><b>🔌 协议完整性校验</b><span>HTTP 协议合规、异常请求识别、API 防护、WebSocket 代理支持</span></div>
+  <div class="feat"><b>🌍 GeoIP 地域封禁</b><span>按国家 / 地维度限制访问来源（内置 GeoIP 模块）</span></div>
+</div>
+
+<footer>
+  命令行验证示例（拦截 = 403，放行 = 200）：
+  <div class="code" id="curlbox"></div>
+  <div style="margin-top:10px">© 2026 内蒙古勤加软件有限公司 · 壁垒WAF BILEIWAF</div>
+</footer>
+
+</div>
+
+<script>
+/* 载荷经 Base64 编码存储，运行时解码，避免页面本身被 WAF 误拦截 */
+function dec(b64){ try{ return decodeURIComponent(escape(atob(b64))); }catch(e){ return atob(b64); } }
+
+var ATTACKS = [
+ {cat:"SQL 注入",ico:"💉",ds:"拼接恶意 SQL 片段，尝试读取数据库敏感数据",
+  cases:[
+   {n:"经典永真式注入",b64:"MScgT1IgJzEnPScx",p:"id"},
+   {n:"UNION 联合查询",b64:"MSBVTklPTiBTRUxFQ1QgcGFzc3dvcmQgRlJPTSB1c2Vycw==",p:"q"},
+   {n:"注释截断",b64:"YWRtaW4nLS0g",p:"user"}
+  ]},
+ {cat:"XSS 跨站脚本",ico:"🕸️",ds:"注入恶意脚本，窃取其他用户会话",
+  cases:[
+   {n:"script 标签注入",b64:"PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",p:"name"},
+   {n:"事件钩子注入",b64:"PGltZyBzcmM9eCBvbmVycm9yPWFsZXJ0KDEpPg==",p:"x"},
+   {n:"伪协议跳转",b64:"amF2YXNjcmlwdDphbGVydCgxKQ==",p:"url"}
+  ]},
+ {cat:"命令注入",ico:"💻",ds:"利用参数拼接执行系统命令",
+  cases:[
+   {n:"分号拼接 cat",b64:"OyBjYXQgL2V0Yy9wYXNzd2Q=",p:"file"},
+   {n:"管道符执行",b64:"fCBjYXQgL2V0Yy9wYXNzd2Q=",p:"cmd"},
+   {n:"命令替换 $()",b64:"JChjYXQgL2V0Yy9wYXNzd2Qp",p:"host"}
+  ]},
+ {cat:"路径穿越",ico:"📂",ds:"通过 ../ 访问 Web 目录之外的敏感文件",
+  cases:[
+   {n:"读取系统密码文件",b64:"Li4vLi4vLi4vZXRjL3Bhc3N3ZA==",p:"page"},
+   {n:"URL 编码穿越",b64:"Li4lMmYuLiUyZi4uJTJmZXRjJTJmcGFzc3dk",p:"file"},
+   {n:"探测隐藏配置",b64:"Y29uZmlnLy53YWYucGFzc3dk",p:"cfg"}
+  ]},
+ {cat:"XXE / SSRF",ico:"📡",ds:"XML 外部实体注入与服务端请求伪造",
+  cases:[
+   {n:"XXE 文件读取",xxe:true,b64:""},
+   {n:"SSRF 探测内网",b64:"aHR0cDovLzEyNy4wLjAuMTo4MDgwL2FkbWlu",p:"url"},
+   {n:"SSRF 云元数据",b64:"aHR0cDovLzE2OS4yNTQuMTY5LjI1NC9sYXRlc3QvbWV0YS1kYXRhLw==",p:"redirect"}
+  ]},
+ {cat:"扫描器 / 恶意工具",ico:"🕵️",ds:"sqlmap、nikto 等渗透工具特征识别（浏览器无法伪造 UA，提供命令行验证）",
+  cases:[
+   {n:"sqlmap 注入工具",ua:"c3FsY2VyaXQvMS41LjEwI3N0YWJsZQ=="},
+   {n:"nikto 扫描器",ua:"TmlrdG8vMi4xLjY="},
+   {n:"masscan 端口扫描",ua:"bWFzc2Nhbi8xLjA="}
+  ]}
+];
+
+/* 修正 UA 与 XXE 载荷（此处以运行时生成，保证编码准确） */
+ATTACKS[4].cases[0].b64 = btoa('<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><root>&xxe;</root>');
+ATTACKS[5].cases[0].ua = btoa('sqlmap/1.5.10#stable');
+ATTACKS[5].cases[1].ua = btoa('Nikto/2.1.6');
+ATTACKS[5].cases[2].ua = btoa('masscan/1.0');
+
+var curlExamples = [];
+var total=0, blocked=0, passed=0;
+
+function fmt(n){ return n.toLocaleString(); }
+function updStats(){
+  document.getElementById('st-total').textContent = fmt(total);
+  document.getElementById('st-block').textContent = fmt(blocked);
+  document.getElementById('st-pass').textContent  = fmt(passed);
+  document.getElementById('st-rate').textContent  = total? Math.round(blocked/total*100)+'%':'0%';
+}
+function count(res){ total++; if(res===403) blocked++; else if(res>=200&&res<300) passed++; updStats(); }
+
+function renderCard(atk){
+  var card=document.createElement('div'); card.className='card';
+  var hd=document.createElement('div'); hd.className='hd';
+  hd.innerHTML='<div class="ico">'+atk.ico+'</div><div><div class="nm">'+atk.cat+'</div><div class="ds">'+atk.ds+'</div></div>';
+  card.appendChild(hd);
+  atk.cases.forEach(function(c,idx){
+    var box=document.createElement('div');
+    var payload = c.b64? dec(c.b64):'';
+    var show = c.n+' → '+ (payload.length>46? payload.slice(0,46)+'…' : payload);
+    if(c.ua) show = c.n+'（User-Agent: '+dec(c.ua).slice(0,26)+'…）';
+    var code=document.createElement('div'); code.className='code'; code.textContent=show;
+    var btn=document.createElement('button'); btn.className='btn'; btn.textContent='发起攻击';
+    var res=document.createElement('div'); res.className='res info'; res.textContent='未执行';
+    if(c.ua){
+      btn.textContent='复制验证命令';
+      btn.onclick=function(){
+        var cmd='curl -i -m 5 "http://<WAF地址>/scan?t='+idx+'" -A "'+dec(c.ua)+'"';
+        if(navigator.clipboard){ navigator.clipboard.writeText(cmd); }
+        res.className='res info';
+        res.textContent='已复制命令，请在任意终端执行并观察 403 结果';
+      };
+    }else{
+      btn.onclick=function(){ runCase(c,btn,res); };
+    }
+    box.appendChild(code); box.appendChild(btn); box.appendChild(res);
+    card.appendChild(box);
+    /* 收集 curl 示例 */
+    if(!c.ua && !c.xxe){ curlExamples.push("curl -i \"http://<WAF地址>/?"+(c.p||'q')+"="+encodeURIComponent(payload)+"\""); }
+    else if(c.ua){ curlExamples.push("curl -i \"http://<WAF地址>/scan\" -A \""+dec(c.ua)+"\""); }
+    else if(c.xxe){ curlExamples.push("curl -i http://<WAF地址>/xml -H 'Content-Type: application/xml' -d '"+payload+"'"); }
+  });
+  return card;
+}
+
+async function runCase(c,btn,res){
+  btn.disabled=true; res.className='res info'; res.textContent='发送中…';
+  var t0=performance.now(), status=0, body='';
+  try{
+    var opt={method:'GET',cache:'no-store'};
+    var url='/';
+    if(c.xxe){ opt.method='POST'; opt.headers={'Content-Type':'application/xml'}; opt.body=dec(c.b64); }
+    else { url='/'+ (c.p||'q') +'='+ encodeURIComponent(dec(c.b64)); }
+    var resp = await fetch(url, opt);
+    status = resp.status;
+    body = (await resp.text()).slice(0,120).replace(/\s+/g,' ');
+  }catch(e){ body='网络错误: '+e.message; }
+  var ms=Math.round(performance.now()-t0);
+  count(status);
+  if(status===403){
+    res.className='res block';
+    res.innerHTML='🚫 <b>已拦截</b> — HTTP 403 Forbidden · '+ms+'ms<div style="color:#7f8ea8;font-size:11px;margin-top:2px">'+body.slice(0,80)+'</div>';
+  }else if(status>=200&&status<300){
+    res.className='res pass';
+    res.innerHTML='✅ <b>已放行</b>（未命中规则）— HTTP '+status+' · '+ms+'ms<div style="color:#7f8ea8;font-size:11px;margin-top:2px">'+body.slice(0,80)+'</div>';
+  }else{
+    res.className='res info'; res.textContent='HTTP '+status+' · '+ms+'ms · '+body.slice(0,60);
+  }
+  btn.disabled=false;
+}
+
+/* 渲染攻击卡片 */
+(function(){
+  var g=document.getElementById('atk-grid');
+  ATTACKS.forEach(function(a){ g.appendChild(renderCard(a)); });
+  var cb=document.getElementById('curlbox');
+  cb.textContent=curlExamples.slice(0,8).join('\n');
+})();
+
+/* CC 压测 */
+document.getElementById('cc-btn').onclick=async function(){
+  var btn=this; btn.disabled=true;
+  var num=parseInt(document.getElementById('cc-num').value)||130;
+  var conc=Math.min(50,parseInt(document.getElementById('cc-conc').value)||25);
+  var resEl=document.getElementById('cc-res'), bar=document.getElementById('cc-bar');
+  var done=0,b=0,t0=performance.now();
+  resEl.textContent='压测中 0/'+num+' …';
+  async function worker(){
+    while(done<num){
+      done++;
+      try{ var r=await fetch('/cc?i='+done+'&t='+Date.now(),{cache:'no-store'}); if(r.status===403)b++; }catch(e){}
+      if(done%10===0){ bar.style.width=(done/num*100)+'%'; resEl.textContent='压测中 '+done+'/'+num+' · 已拦截 '+b; }
+    }
+  }
+  var ws=[]; for(var i=0;i<conc;i++) ws.push(worker());
+  await Promise.all(ws);
+  var ms=Math.round(performance.now()-t0);
+  bar.style.width='100%';
+  total+=num; blocked+=b; passed+=num-b; updStats();
+  if(b>0){
+    resEl.className='res block';
+    resEl.innerHTML='🚫 <b>CC 防护已触发</b> — 发送 '+num+' 个请求，拦截 '+b+' 个（'+Math.round(b/num*100)+'%）· '+ms+'ms<br><span style="color:#7f8ea8;font-size:11px">本机 IP 已被临时封禁（60 秒后自动解封，或重启演示服务立即解封: ./stop.sh && ./start.sh）</span>';
+  }else{
+    resEl.className='res info';
+    resEl.textContent='未触发封禁（可在上方调大请求数后重试，演示阈值 60 秒 30 次）';
+  }
+  btn.disabled=false;
+};
+
+/* 日志轮询 */
+async function pollLogs(){
+  try{
+    var r=await fetch('/demo/api/logs',{cache:'no-store'});
+    var j=await r.json();
+    var el=document.getElementById('logbox');
+    if(j.success&&j.data){
+      var txt=j.data.content||'';
+      el.textContent=txt.trim()? txt.trim().slice(-4000):'(日志为空，请先发起一次攻击)';
+      el.scrollTop=el.scrollHeight;
+    }
+  }catch(e){}
+}
+setInterval(pollLogs,4000); pollLogs();
+
+/* 顶部状态 */
+async function loadInfo(){
+  try{
+    var r=await fetch('/demo/api/info',{cache:'no-store'});
+    var j=await r.json(); var d=j.data;
+    document.getElementById('pill-backend').className='pill ok';
+    document.getElementById('pill-backend').innerHTML='<span class="dot"></span>后端在线 · '+d.service;
+    var up=d.uptime_sec, s=up%60, m=Math.floor(up/60)%60, h=Math.floor(up/3600);
+    document.getElementById('pill-uptime').innerHTML='运行 <b>'+(h?h+'h ':'')+m+'m '+s+'s</b>';
+  }catch(e){
+    document.getElementById('pill-backend').className='pill err';
+    document.getElementById('pill-backend').innerHTML='<span class="dot"></span>后端离线（WAF 仍在防护）';
+  }
+}
+loadInfo(); setInterval(loadInfo,5000);
+fetch('/demo/api/info').catch(function(){});
+</script>
+</body>
+</html>

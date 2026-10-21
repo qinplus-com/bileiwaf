@@ -1,0 +1,15 @@
+壁垒WAF（BileiWAF）
+Copyright 2026 内蒙古勤加软件有限公司
+
+本产品基于 Apache License 2.0 发布，许可证全文见 LICENSE 文件。
+
+本项目包含的第三方组件及其许可：
+- OpenSSL            Apache License 2.0
+- libcurl            MIT License
+- json-c             MIT License
+- libmaxminddb       Apache License 2.0
+- ECharts            Apache License 2.0
+- 文泉驿微米黑字体     Apache License 2.0 / GPL v3（双许可）
+
+GeoIP 数据库（GeoLite2-City.mmdb）由 MaxMind 提供，遵循其最终用户许可协议，
+不在本仓库中分发，请自行下载后置于 geoip/ 目录。
