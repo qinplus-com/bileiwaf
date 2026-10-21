@@ -222,8 +222,12 @@ button{cursor:pointer;border:none;border-radius:6px;font-family:inherit}
           <div class="formrow"><label>保护域名</label><input id="st_domain" placeholder="www.example.com"></div>
           <div class="formrow"><label>后端地址</label><input id="st_host" value="127.0.0.1"></div>
           <div class="formrow"><label>后端端口</label><input id="st_port" value="9000"></div>
-          <button class="btn" id="st_save" style="width:100%;margin-top:8px">保存站点</button>
-          <div class="hint">域名仅允许字母数字与 <b>. -</b>；同名域名将覆盖原配置。</div>
+          <div class="formrow"><label>文档根目录</label><input id="st_root" value="share" placeholder="静态目录，相对 WAF_HOME 或绝对路径"></div>
+          <div class="formrow"><label>启用 HTTPS</label>
+            <select id="st_ssl"><option value="1">自动生成自签证书</option><option value="0">暂不启用</option></select></div>
+          <div class="formrow"><label>证书有效期</label><input id="st_days" value="365" placeholder="天数 1-3650"></div>
+          <button class="btn" id="st_save" style="width:100%;margin-top:8px">保存站点并生成证书</button>
+          <div class="hint">保存后自动写入完整站点配置（site/ssl/logging/gzip/cache/security）并签发自签证书；域名仅允许字母数字与 <b>. -</b>，同名将覆盖原配置。</div>
         </div>
       </div>
     </div>
@@ -509,10 +513,13 @@ async function loadSites(){
 $("st_refresh").onclick=loadSites;
 $("st_save").onclick=async()=>{
   const d=$("st_domain").value.trim(),h=$("st_host").value.trim(),p=$("st_port").value.trim();
+  const root=$("st_root").value.trim()||"share", ssl=$("st_ssl").value, days=$("st_days").value.trim()||"365";
   if(!d){ toast("请输入保护域名",true); return; }
   if(!/^\d+$/.test(p)){ toast("后端端口必须为数字",true); return; }
+  if(!/^\d+$/.test(days)){ toast("证书有效期必须为数字",true); return; }
   try{
-    const r=await postForm("/api/admin/sites","domain="+enc(d)+"&backend_host="+enc(h)+"&backend_port="+enc(p));
+    const r=await postForm("/api/admin/sites","domain="+enc(d)+"&backend_host="+enc(h)
+      +"&backend_port="+enc(p)+"&document_root="+enc(root)+"&ssl="+enc(ssl)+"&cert_days="+enc(days));
     toast((r&&r.message)||"已保存",!(r&&r.success));
     if(r&&r.success){ $("st_domain").value=""; loadSites(); }
   }catch(e){}

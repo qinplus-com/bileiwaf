@@ -8,6 +8,12 @@
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
+#include <stdarg.h>
+#if defined(USE_OPENSSL)
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#include <openssl/evp.h>
+#endif
 
 #define PID_FILE "/tmp/waf.pid"
 #define BACKEND_PID_DIR "/tmp/waf-backend-pids"
@@ -25,6 +31,7 @@ void print_usage(const char *prog) {
     printf("  status          Show WAF status\n");
     printf("  restart         Restart WAF service\n");
     printf("  sites           Show configured sites\n");
+    printf("  check, -t       Validate configuration (like nginx -t)\n");
     printf("  backend         Manage backend services\n");
     printf("  cert            Manage SSL certificates\n");
     printf("  webadmin        WAF management interface (HTTP/HTTPS)\n");
@@ -457,6 +464,309 @@ int show_sites(void) {
     
     printf("└─────────────────────────────────────────────────────────────┘\n");
     
+    return 0;
+}
+
+/* ============================================================
+ * 配置校验（等价 `nginx -t`）：`bileiwaf check` / `bileiwaf -t`
+ * 校验 waf.conf 与 sites.conf 以及 config/sites 下各站点配置：
+ * 端口/线程数范围、必需项、重复域名、后端地址、HTTPS 证书可读且配对、
+ * 纯静态站点文档根是否存在。有错误时退出码 1。
+ * ============================================================ */
+static int g_chk_err = 0, g_chk_warn = 0;
+
+static void chk_msg(int is_err, const char *file, int line, const char *fmt, ...) {
+    va_list ap;
+    fflush(stdout);   /* 保证错误与进度输出顺序一致 */
+    if (line > 0) fprintf(stderr, "waf: [%s] %s:%d: ", is_err ? "emerg" : "warn", file, line);
+    else          fprintf(stderr, "waf: [%s] %s: ", is_err ? "emerg" : "warn", file);
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+    if (is_err) g_chk_err++; else g_chk_warn++;
+}
+
+static const char *chk_find_waf_conf(char *out, size_t outsz) {
+    static char home_conf[512];
+    const char *paths[6];
+    int n = 0;
+    paths[n++] = "config/waf.conf";
+    const char *home = getenv("WAF_HOME");
+    if (home && home[0]) {
+        snprintf(home_conf, sizeof(home_conf), "%s/config/waf.conf", home);
+        paths[n++] = home_conf;
+    }
+    paths[n++] = WAF_PREFIX "/config/waf.conf";
+    paths[n++] = "/etc/waf/waf.conf";
+    paths[n++] = "/opt/waf/config/waf.conf";
+    for (int i = 0; i < n; i++) {
+        if (access(paths[i], R_OK) == 0) {
+            snprintf(out, outsz, "%s", paths[i]);
+            return out;
+        }
+    }
+    return NULL;
+}
+
+/* 校验证书/私钥可读且配对；err 返回原因 */
+static int chk_cert_pair(const char *cert, const char *key, char *err, size_t errsz) {
+#if defined(USE_OPENSSL)
+    BIO *bc = BIO_new_file(cert, "r");
+    if (!bc) { snprintf(err, errsz, "证书文件不可读: %s", cert); return -1; }
+    X509 *x = PEM_read_bio_X509(bc, NULL, NULL, NULL);
+    BIO_free(bc);
+    if (!x) { snprintf(err, errsz, "证书不是有效 PEM: %s", cert); return -1; }
+
+    BIO *bk = BIO_new_file(key, "r");
+    EVP_PKEY *p = bk ? PEM_read_bio_PrivateKey(bk, NULL, NULL, NULL) : NULL;
+    if (bk) BIO_free(bk);
+    if (!p) { X509_free(x); snprintf(err, errsz, "私钥不可读或格式错误: %s", key); return -1; }
+
+    int ok = X509_check_private_key(x, p);
+    EVP_PKEY_free(p);
+    X509_free(x);
+    if (!ok) { snprintf(err, errsz, "证书与私钥不匹配: %s / %s", cert, key); return -1; }
+    return 0;
+#else
+    (void)cert; (void)key;
+    snprintf(err, errsz, "未启用 OpenSSL 支持，跳过证书校验");
+    return 0;
+#endif
+}
+
+/* 校验站点配置文件；seen/seen_n 用于跨站点重复域名检测 */
+static void chk_site_file(const char *path, char seen[][256], int *seen_n, int max_seen) {
+    FILE *fp = fopen(path, "r");
+    if (!fp) { chk_msg(1, path, 0, "站点配置文件不存在或不可读"); return; }
+
+    char section[64] = "";
+    char line[1024];
+    int lineno = 0;
+    char domains[8][256]; int ndom = 0;
+    char bhost[256] = "", docroot[512] = "", cert[512] = "", key[512] = "";
+    int bport = -1, enabled = 1, ssl_en = 0;
+    int site_lines[8] = {0};
+
+    while (fgets(line, sizeof(line), fp)) {
+        lineno++;
+        char *t = waf_trim(line);
+        if (!*t || *t == '#' || *t == ';') continue;
+        if (*t == '[') {
+            char *e = strchr(t, ']');
+            if (!e) { chk_msg(1, path, lineno, "节名缺少 ']'"); continue; }
+            *e = '\0';
+            snprintf(section, sizeof(section), "%s", t + 1);
+            continue;
+        }
+        char *eq = strchr(t, '=');
+        if (!eq) { chk_msg(1, path, lineno, "缺少 '=': %s", t); continue; }
+        *eq = '\0';
+        char *k = waf_trim(t), *v = waf_trim(eq + 1);
+
+        if (!strcmp(section, "site")) {
+            if (!strcmp(k, "domain") || !strcmp(k, "domains")) {
+                if (ndom < 8) {
+                    snprintf(domains[ndom], sizeof(domains[0]), "%s", v);
+                    site_lines[ndom] = lineno;
+                    ndom++;
+                } else {
+                    chk_msg(0, path, lineno, "域名超过 8 个，其余将被忽略");
+                }
+            } else if (!strcmp(k, "backend_host")) {
+                snprintf(bhost, sizeof(bhost), "%s", v);
+            } else if (!strcmp(k, "backend_port")) {
+                for (char *c = v; *c; c++)
+                    if (!isdigit((unsigned char)*c)) { chk_msg(1, path, lineno, "backend_port 非数字: %s", v); break; }
+                bport = atoi(v);
+            } else if (!strcmp(k, "document_root")) {
+                snprintf(docroot, sizeof(docroot), "%s", v);
+            } else if (!strcmp(k, "enabled")) {
+                enabled = atoi(v);
+            }
+        } else if (!strcmp(section, "ssl")) {
+            if (!strcmp(k, "enabled")) ssl_en = atoi(v);
+            else if (!strcmp(k, "cert_file")) snprintf(cert, sizeof(cert), "%s", v);
+            else if (!strcmp(k, "key_file")) snprintf(key, sizeof(key), "%s", v);
+        }
+    }
+    fclose(fp);
+
+    if (ndom == 0) { chk_msg(1, path, 0, "[site] 段缺少 domain"); return; }
+    if (!strcmp(domains[0], "")) chk_msg(1, path, site_lines[0], "domain 为空");
+    if (bport < 0) chk_msg(1, path, 0, "[site] 段缺少 backend_port（纯静态站点请显式写 0）");
+    else if (bport > 65535) chk_msg(1, path, 0, "backend_port 超出范围: %d", bport);
+    if (!bhost[0]) chk_msg(1, path, 0, "[site] 段缺少 backend_host");
+
+    /* 纯静态站点：backend_port = 0 时 document_root 必须存在 */
+    if (bport == 0) {
+        if (!docroot[0]) chk_msg(1, path, 0, "静态站点（backend_port=0）必须配置 document_root");
+        else if (access(docroot, R_OK) != 0) {
+            char alt[600];
+            const char *wh = getenv("WAF_HOME");
+            int ok = 0;
+            if (wh && wh[0] && docroot[0] != '/') {
+                snprintf(alt, sizeof(alt), "%s/%s", wh, docroot);
+                if (access(alt, R_OK) == 0) ok = 1;
+            }
+            if (!ok) chk_msg(1, path, 0, "document_root 不存在或不可读: %s", docroot);
+        }
+    }
+
+    if (!enabled) return;   /* 停用站点不参与后续校验 */
+
+    if (ssl_en) {
+        if (!cert[0] || !key[0]) chk_msg(1, path, 0, "[ssl] enabled=1 但缺少 cert_file/key_file");
+        else {
+            char err[600];
+            if (chk_cert_pair(cert, key, err, sizeof(err)) != 0)
+                chk_msg(1, path, 0, "%s", err);
+        }
+    }
+
+    /* 重复域名 */
+    for (int i = 0; i < ndom; i++) {
+        if (!domains[i][0]) continue;
+        for (int j = 0; j < *seen_n; j++)
+            if (!strcasecmp(seen[j], domains[i]))
+                chk_msg(1, path, site_lines[i], "域名重复: %s（与其它站点冲突）", domains[i]);
+        if (*seen_n < max_seen) {
+            snprintf(seen[*seen_n], 256, "%s", domains[i]);
+            (*seen_n)++;
+        }
+    }
+}
+
+static int check_config(void) {
+    char conf[600];
+    const char *found = chk_find_waf_conf(conf, sizeof(conf));
+    printf("[check] 壁垒WAF 配置校验\n");
+
+    if (!found) {
+        chk_msg(1, "config/waf.conf", 0, "找不到配置文件（已查找 CWD、$WAF_HOME、%s/config、/etc/waf、/opt/waf/config）", WAF_PREFIX);
+    } else {
+        printf("[check] 主配置: %s\n", found);
+        FILE *fp = fopen(found, "r");
+        char line[1024];
+        int lineno = 0;
+        int ssl_cert_set = 0, ssl_key_set = 0;
+        char cert[512] = "", key[512] = "", rules_dir[512] = "rules", log_dir[512] = "logs";
+        while (fp && fgets(line, sizeof(line), fp)) {
+            lineno++;
+            char *t = waf_trim(line);
+            if (!*t || *t == '#' || *t == ';') continue;
+            char *eq = strchr(t, '=');
+            if (!eq) continue;
+            *eq = '\0';
+            char *k = waf_trim(t), *v = waf_trim(eq + 1);
+            if (!strcmp(k, "http_port") || !strcmp(k, "https_port") || !strcmp(k, "admin_port")) {
+                if (!*v) { chk_msg(1, found, lineno, "%s 为空", k); continue; }
+                for (char *c = v; *c; c++)
+                    if (!isdigit((unsigned char)*c)) { chk_msg(1, found, lineno, "%s 非数字: %s", k, v); goto next_line; }
+                {
+                    int p = atoi(v);
+                    if (p < 1 || p > 65535) chk_msg(1, found, lineno, "%s 超出范围 1-65535: %d", k, p);
+                }
+            } else if (!strcmp(k, "worker_threads")) {
+                int w = atoi(v);
+                if (w < 1 || w > 1024) chk_msg(1, found, lineno, "worker_threads 超出范围 1-1024: %d", w);
+            } else if (!strcmp(k, "log_rotate_size") || !strcmp(k, "log_retention_days")) {
+                int n = atoi(v);
+                if (n < 0) chk_msg(1, found, lineno, "%s 不能为负数: %d", k, n);
+            } else if (!strcmp(k, "detection_mode")) {
+                if (strcmp(v, "rules") && strcmp(v, "ai") && strcmp(v, "auto"))
+                    chk_msg(1, found, lineno, "detection_mode 非法（应为 rules|ai|auto）: %s", v);
+            } else if (!strcmp(k, "mode")) {
+                if (strcmp(v, "learning") && strcmp(v, "detection") && strcmp(v, "blocking"))
+                    chk_msg(1, found, lineno, "mode 非法（应为 learning|detection|blocking）: %s", v);
+            } else if (!strcmp(k, "cert_file")) {
+                snprintf(cert, sizeof(cert), "%s", v); ssl_cert_set = 1;
+            } else if (!strcmp(k, "key_file")) {
+                snprintf(key, sizeof(key), "%s", v); ssl_key_set = 1;
+            } else if (!strcmp(k, "rules_dir")) {
+                snprintf(rules_dir, sizeof(rules_dir), "%s", v);
+            } else if (!strcmp(k, "log_dir")) {
+                snprintf(log_dir, sizeof(log_dir), "%s", v);
+            }
+next_line:  ;
+        }
+        if (fp) fclose(fp);
+
+        if (ssl_cert_set != ssl_key_set)
+            chk_msg(1, found, 0, "cert_file 与 key_file 必须成对配置");
+        else if (ssl_cert_set && cert[0] && key[0]) {
+            char err[600];
+            if (chk_cert_pair(cert, key, err, sizeof(err)) != 0)
+                chk_msg(1, found, 0, "%s", err);
+        }
+        if (access(rules_dir, R_OK) != 0) {
+            char alt[600]; const char *wh = getenv("WAF_HOME");
+            int ok = 0;
+            if (wh && wh[0] && rules_dir[0] != '/') {
+                snprintf(alt, sizeof(alt), "%s/%s", wh, rules_dir);
+                ok = access(alt, R_OK) == 0;
+            }
+            if (!ok) chk_msg(0, found, 0, "规则目录不存在（启动时自动创建）: %s", rules_dir);
+        }
+        if (access(log_dir, W_OK) != 0 && access(log_dir, F_OK) == 0)
+            chk_msg(0, found, 0, "日志目录不可写: %s", log_dir);
+    }
+
+    /* ---- 站点配置 ---- */
+    char sites_conf[700];
+    char conf_dir[600] = ".";
+    if (found) {
+        snprintf(conf_dir, sizeof(conf_dir), "%s", found);
+        char *slash = strrchr(conf_dir, '/');
+        if (slash) *slash = '\0'; else snprintf(conf_dir, sizeof(conf_dir), ".");
+    }
+    snprintf(sites_conf, sizeof(sites_conf), "%s/sites.conf", conf_dir);
+
+    FILE *sf = fopen(sites_conf, "r");
+    if (!sf) {
+        chk_msg(0, sites_conf, 0, "未找到 sites.conf，将使用默认站点 demo.local");
+    } else {
+        char line[1024];
+        int lineno = 0, count = 0;
+        char seen[512][256];
+        int seen_n = 0;
+        char sites_dir[700];
+        snprintf(sites_dir, sizeof(sites_dir), "%s/sites", conf_dir);
+        char section[64] = "";
+        while (fgets(line, sizeof(line), sf)) {
+            lineno++;
+            char *t = waf_trim(line);
+            if (!*t || *t == '#' || *t == ';') continue;
+            if (*t == '[') {
+                char *e = strchr(t, ']');
+                if (e) { *e = '\0'; snprintf(section, sizeof(section), "%s", t + 1); }
+                continue;
+            }
+            char *eq = strchr(t, '=');
+            if (!eq || strcmp(section, "sites")) continue;
+            *eq = '\0';
+            char *k = waf_trim(t), *v = waf_trim(eq + 1);
+            if (strcmp(k, "site")) continue;
+            char *sp = strchr(v, ' ');
+            if (sp) *sp = '\0';   /* site = x.conf disabled */
+            char spath[900];
+            snprintf(spath, sizeof(spath), "%s/%s", sites_dir, v);
+            chk_site_file(spath, seen, &seen_n, 512);
+            count++;
+        }
+        fclose(sf);
+        printf("[check] 站点配置: %s（%d 个站点）\n", sites_conf, count);
+        if (count == 0) chk_msg(0, sites_conf, 0, "[sites] 段没有任何 site 项");
+    }
+
+    fprintf(stderr, "\n");
+    if (g_chk_err) {
+        fprintf(stderr, "waf: configuration file %s test failed（%d 个错误，%d 个警告）\n",
+                found ? found : "config/waf.conf", g_chk_err, g_chk_warn);
+        return 1;
+    }
+    printf("waf: configuration file %s test is successful（%d 个警告）\n",
+           found ? found : "config/waf.conf", g_chk_warn);
     return 0;
 }
 
@@ -2520,6 +2830,10 @@ int main(int argc, char *argv[]) {
     
     if (strcmp(command, "sites") == 0) {
         return show_sites();
+    }
+    
+    if (strcmp(command, "check") == 0 || strcmp(command, "-t") == 0) {
+        return check_config();
     }
     
     if (strcmp(command, "backend") == 0) {

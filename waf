@@ -347,13 +347,16 @@ case "${1:-}" in
     stop)    shift; do_stop "$@" ;;
     restart) shift; do_restart "$@" ;;
     status)  do_status ;;
+    check|-t) shift; [ -x bin/bileiwaf ] || { err "bin/bileiwaf 不存在，请先 make"; exit 1; }
+             exec ./bin/bileiwaf check "$@" ;;
     *)
-        echo "用法: $0 {start|stop|status|restart} [waf|admin] [参数]"
+        echo "用法: $0 {start|stop|status|restart|check} [waf|admin] [参数]"
         echo ""
         echo "  start [waf|admin] [-p 端口] [-s HTTPS端口] [-b 后端地址:端口] [-a 管理端口]"
         echo "                        启动服务；waf=仅数据平面，admin=仅管理平面，缺省=全部"
         echo "  stop  [waf|admin]     停止服务；缺省停止全部平面"
         echo "  status                查看数据平面与管理平面状态（运行中 exit 0 / 停止 exit 3）"
         echo "  restart [waf|admin] [参数同 start]  重启服务"
+        echo "  check                 校验 waf.conf / sites.conf / 站点配置与证书（同 nginx -t）"
         exit 1 ;;
 esac

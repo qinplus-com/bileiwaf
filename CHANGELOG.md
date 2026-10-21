@@ -2,6 +2,24 @@
 
 本项目遵循语义化版本。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [Unreleased]
+
+### 修复
+
+- 管理后台登录后刷新或切换页面偶发跳回登录页：管理平面改为循环读取完整 HTTP
+  请求头（TCP 分段时不再丢失 Cookie），已登录会话保持有效。
+- 站点管理新建站点时配置过于精简：现在生成包含 `site / ssl / logging / gzip /
+  cache / security` 的完整站点模板，并在创建时自动签发自签证书（含 SAN）写入
+  `[ssl]` 段；同时支持自定义文档根与证书有效期。
+- 自签证书改用独立 openssl 配置文件写入扩展，兼容 el7 的 OpenSSL 1.0.2
+  （不支持 `-addext`）。
+
+### 新增
+
+- `waf check` / `bileiwaf check` / `bileiwaf -t`：配置校验命令（等价 `nginx -t`），
+  检查端口/线程数范围、站点必需项、重复域名、后端地址、纯静态站点文档根，
+  以及 HTTPS 证书可读性与证书/私钥配对。有错误时退出码 1。
+
 ## [1.0.0] - 2026-10-21
 
 首个正式发布版本。

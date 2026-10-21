@@ -1645,18 +1645,77 @@ static void sanitize_filename(const char *in, char *out, size_t outsz) {
     out[o] = '\0';
 }
 
-/* POST 新增/更新站点: domain=xx&backend_host=xx&backend_port=xx */
+/* 下方证书辅助函数（定义见证书管理区，供站点创建复用） */
+static int run_capture(const char *cmd, char *out, size_t outsz);
+static int safe_fs_path(const char *p);
+
+/* 生成自签证书（含 SAN）：certs/<domain>/{fullchain.pem,privkey.pem}
+ * 用独立 openssl 配置文件写扩展，兼容 OpenSSL 1.0.2（无 -addext）与 1.1/3.x。
+ * 成功返回 0，并回填 cpath/kpath。 */
+static int selfsign_cert_files(const char *domain, int days,
+                               char *cpath, size_t cc, char *kpath, size_t kk) {
+    char dir[700];
+    snprintf(dir, sizeof(dir), "%s/certs/%s", waf_home(), domain);
+    char cmd[1600];
+    snprintf(cmd, sizeof(cmd), "mkdir -p '%s' && chmod 700 '%s'", dir, dir);
+    if (!safe_fs_path(dir) || system(cmd) != 0) return -1;
+
+    snprintf(cpath, cc, "%s/fullchain.pem", dir);
+    snprintf(kpath, kk, "%s/privkey.pem", dir);
+    if (!safe_fs_path(cpath) || !safe_fs_path(kpath)) return -1;
+
+    char cfg[900];
+    snprintf(cfg, sizeof(cfg), "%s/.openssl-req.cnf", dir);
+    FILE *f = fopen(cfg, "w");
+    if (!f) return -1;
+    fprintf(f,
+        "[req]\n"
+        "distinguished_name = dn\n"
+        "x509_extensions = v3\n"
+        "prompt = no\n"
+        "[dn]\n"
+        "CN = %s\n"
+        "[v3]\n"
+        "subjectAltName = DNS:%s\n"
+        "basicConstraints = CA:FALSE\n"
+        "keyUsage = digitalSignature, keyEncipherment\n"
+        "extendedKeyUsage = serverAuth\n",
+        domain, domain);
+    fclose(f);
+
+    snprintf(cmd, sizeof(cmd),
+        "openssl req -x509 -newkey rsa:2048 -nodes -sha256 "
+        "-keyout '%s' -out '%s' -days %d -config '%s' 2>/dev/null",
+        kpath, cpath, days, cfg);
+    char err[128];
+    int rc = run_capture(cmd, err, sizeof(err));
+    unlink(cfg);
+    if (rc != 0) return -1;
+    chmod(cpath, 0644);
+    chmod(kpath, 0600);
+    return 0;
+}
+
+/* POST 新增/更新站点:
+ * domain=xx&backend_host=xx&backend_port=xx
+ * [&document_root=xx][&ssl=0|1][&cert_days=365]
+ * 生成完整站点模板（site/ssl/logging/gzip/cache/security），
+ * ssl=1 时自动签发自签证书并写入 [ssl] 段。 */
 static void handle_admin_sites_post(int fd, const char *post) {
     char domain[256] = "", bhost[128] = "127.0.0.1", bport[16] = "9000";
-    char tmp[1024];
+    char docroot[512] = "share", ssl[8] = "1", days[16] = "365";
+    char tmp[2048];
     snprintf(tmp, sizeof(tmp), "%s", post ? post : "");
     for (char *tok = strtok(tmp, "&"); tok; tok = strtok(NULL, "&")) {
         char *eq = strchr(tok, '=');
         if (!eq) continue;
         *eq = '\0';
-        if (!strcmp(tok, "domain"))       snprintf(domain, sizeof(domain), "%s", eq + 1);
+        if (!strcmp(tok, "domain"))            snprintf(domain, sizeof(domain), "%s", eq + 1);
         else if (!strcmp(tok, "backend_host")) snprintf(bhost, sizeof(bhost), "%s", eq + 1);
         else if (!strcmp(tok, "backend_port")) snprintf(bport, sizeof(bport), "%s", eq + 1);
+        else if (!strcmp(tok, "document_root")) snprintf(docroot, sizeof(docroot), "%s", eq + 1);
+        else if (!strcmp(tok, "ssl"))          snprintf(ssl, sizeof(ssl), "%s", eq + 1);
+        else if (!strcmp(tok, "cert_days"))    snprintf(days, sizeof(days), "%s", eq + 1);
     }
     /* 校验：域名与主机仅允许安全字符，端口为数字 */
     for (const char *c = domain; *c; c++)
@@ -1665,37 +1724,129 @@ static void handle_admin_sites_post(int fd, const char *post) {
             send_error(fd, "400 Bad Request", "invalid domain"); return;
         }
     for (const char *c = bhost; *c; c++)
-        if (!(*c >= '0' && *c <= '9') && *c != '.') {
+        if (!(*c >= '0' && *c <= '9') && !(*c >= 'a' && *c <= 'z') &&
+            !(*c >= 'A' && *c <= 'Z') && *c != '.' && *c != '-') {
             send_error(fd, "400 Bad Request", "invalid backend_host"); return;
         }
     for (const char *c = bport; *c; c++)
         if (!(*c >= '0' && *c <= '9')) {
             send_error(fd, "400 Bad Request", "invalid backend_port"); return;
         }
+    for (const char *c = days; *c; c++)
+        if (!(*c >= '0' && *c <= '9')) {
+            send_error(fd, "400 Bad Request", "invalid cert_days"); return;
+        }
+    /* 文档根只允许路径字符，禁止换行/引号等会破坏 INI 的字符 */
+    for (const char *c = docroot; *c; c++)
+        if (!(*c >= 'a' && *c <= 'z') && !(*c >= 'A' && *c <= 'Z') &&
+            !(*c >= '0' && *c <= '9') && !strchr("._/-:@", *c)) {
+            send_error(fd, "400 Bad Request", "invalid document_root"); return;
+        }
     if (!domain[0]) { send_error(fd, "400 Bad Request", "domain required"); return; }
+    if (!docroot[0]) snprintf(docroot, sizeof(docroot), "%s", "share");
+
+    int dnum = atoi(days);
+    if (dnum < 1 || dnum > 3650) dnum = 365;
+    int want_ssl = !(ssl[0] == '0' || !strcasecmp(ssl, "off") || !strcasecmp(ssl, "false"));
 
     char fname[300];
     sanitize_filename(domain, fname, sizeof(fname) - 6);
+    if (!fname[0]) { send_error(fd, "400 Bad Request", "invalid domain"); return; }
     char fpath[800];
     snprintf(fpath, sizeof(fpath), "%s/config/sites/%s.conf", waf_home(), fname);
+    /* 首次部署时 config/sites 可能尚未创建 */
+    {
+        char sdir[800];
+        snprintf(sdir, sizeof(sdir), "%s/config/sites", waf_home());
+        mkdir(sdir, 0755);
+    }
+
+    /* 证书路径：cert_file/key_file 用 WAF_HOME 绝对路径，避免 CWD 漂移 */
+    char cpath[900] = "", kpath[900] = "";
+    int cert_ok = 0;
+    if (want_ssl) {
+        snprintf(cpath, sizeof(cpath), "%s/certs/%s/fullchain.pem", waf_home(), domain);
+        snprintf(kpath, sizeof(kpath), "%s/certs/%s/privkey.pem", waf_home(), domain);
+        /* 已有可用证书则复用（更新站点不覆盖证书） */
+        if (access(cpath, R_OK) == 0 && access(kpath, R_OK) == 0) {
+            cert_ok = 1;
+        } else if (selfsign_cert_files(domain, dnum, cpath, sizeof(cpath),
+                                       kpath, sizeof(kpath)) == 0) {
+            cert_ok = 1;
+        }
+    }
+
     FILE *f = fopen(fpath, "w");
     if (!f) { send_error(fd, "500 Internal Server Error", "cannot write site file"); return; }
     fprintf(f,
-        "# 壁垒WAF 站点配置（由管理控制台创建）\n"
+        "# 壁垒WAF 站点配置（由管理控制台创建 %s）\n"
+        "# 修改后执行 `./waf check` 校验，再 reload/restart 生效\n"
+        "\n"
         "[site]\n"
         "domain = %s\n"
         "domains = %s\n"
-        "document_root = share\n"
+        "document_root = %s\n"
         "backend_host = %s\n"
         "backend_port = %s\n"
-        "enabled = 1\n",
-        domain, domain, bhost, bport);
+        "enabled = 1\n"
+        "cc_captcha = 1\n"
+        "\n"
+        "[ssl]\n"
+        "enabled = %d\n"
+        "cert_file = %s\n"
+        "key_file = %s\n"
+        "\n"
+        "[logging]\n"
+        "enabled = 1\n"
+        "level = info\n"
+        "access_log = logs/%s/access.log\n"
+        "error_log = logs/%s/error.log\n"
+        "format = combined\n"
+        "max_file_size = 100\n"
+        "max_files = 7\n"
+        "\n"
+        "[optimization]\n"
+        "worker_threads = 8\n"
+        "max_connections = 2000\n"
+        "connection_timeout = 60\n"
+        "keepalive_timeout = 120\n"
+        "\n"
+        "[gzip]\n"
+        "enabled = 1\n"
+        "min_length = 20\n"
+        "\n"
+        "[cache]\n"
+        "enabled = 0\n"
+        "type = memory\n"
+        "max_size = 256\n"
+        "expire_time = 7200\n"
+        "\n"
+        "[security]\n"
+        "csrf_protection = 1\n"
+        "xss_protection = 1\n"
+        "clickjacking_protection = 1\n",
+        domain, domain, domain, docroot, bhost, bport,
+        cert_ok ? 1 : 0, cert_ok ? cpath : "", cert_ok ? kpath : "",
+        domain, domain);
     fclose(f);
 
     if (rebuild_sites_index() != 0) {
         send_error(fd, "500 Internal Server Error", "index update failed"); return;
     }
-    send_json(fd, "{\"success\":true,\"message\":\"站点已保存，重载或重启 WAF 后生效\"}");
+
+    char msg[700];
+    if (want_ssl && !cert_ok)
+        snprintf(msg, sizeof(msg),
+                 "站点已保存，但自签证书生成失败（请检查 openssl）；可稍后在证书管理中手动生成。重启 WAF 后生效");
+    else if (cert_ok)
+        snprintf(msg, sizeof(msg),
+                 "站点已保存，自签证书已生成并写入 [ssl]：%s。重启 WAF 后生效", cpath);
+    else
+        snprintf(msg, sizeof(msg), "站点已保存（未启用 HTTPS）。重启 WAF 后生效");
+    char esc[900]; json_escape(msg, esc, sizeof(esc));
+    char body[1000];
+    int bl = snprintf(body, sizeof(body), "{\"success\":true,\"message\":\"%s\"}", esc);
+    send_response(fd, "200 OK", "application/json", body, (size_t)bl);
 }
 
 /* POST 删除站点: file=xx.conf */
@@ -2080,38 +2231,11 @@ static void handle_admin_certs_selfsign(int fd, const char *post) {
     int dnum = atoi(days);
     if (dnum < 1 || dnum > 3650) { send_error(fd, "400 Bad Request", "days 1-3650"); return; }
 
-    char dir[700];
-    snprintf(dir, sizeof(dir), "%s/certs/%s", waf_home(), domain);
-    char cmd[1600];
-    snprintf(cmd, sizeof(cmd), "mkdir -p '%s' && chmod 700 '%s'", dir, dir);
-    if (!safe_fs_path(dir) || system(cmd) != 0) {
-        send_error(fd, "500 Internal Server Error", "cannot create cert dir"); return;
-    }
     char cpath[900], kpath[900];
-    snprintf(cpath, sizeof(cpath), "%s/fullchain.pem", dir);
-    snprintf(kpath, sizeof(kpath), "%s/privkey.pem", dir);
-
-    /* SAN 扩展：浏览器对无 SAN 的自签证书直接报错（写入临时 .ext 备用；
-     * 主路径用 -addext，OpenSSL>=1.1.1 均支持） */
-    char ext[900];
-    snprintf(ext, sizeof(ext), "%s/.san.ext", dir);
-    FILE *ef = fopen(ext, "w");
-    if (ef) { fprintf(ef, "subjectAltName=DNS:%s\n", domain); fclose(ef); }
-
-    char gcmd[1600];
-    snprintf(gcmd, sizeof(gcmd),
-        "openssl req -x509 -newkey rsa:2048 -nodes "
-        "-keyout '%s' -out '%s' -days %d -subj '/CN=%s' "
-        "-addext 'subjectAltName=DNS:%s' 2>/dev/null",
-        kpath, cpath, dnum, domain, domain);
-    char devnull[4];
-    if (!safe_fs_path(cpath) || !safe_fs_path(kpath) ||
-        run_capture(gcmd, devnull, sizeof(devnull)) != 0) {
-        unlink(ext);
+    if (selfsign_cert_files(domain, dnum, cpath, sizeof(cpath),
+                            kpath, sizeof(kpath)) != 0) {
         send_error(fd, "500 Internal Server Error", "openssl 生成失败"); return;
     }
-    unlink(ext);
-    chmod(cpath, 0644); chmod(kpath, 0600);
 
     if (!strcmp(apply, "1")) {
         char spath[900];
@@ -2517,32 +2641,48 @@ static void handle_admin_password(int fd, const char *cookie_hdr, const char *po
 
 /* ---------------- 请求处理 ---------------- */
 
-static void handle_client(int fd, const char *client_ip, int on_admin_plane) {
-    char buf[RECV_BUF_SIZE];
-    ssize_t n = recv(fd, buf, sizeof(buf) - 1, 0);
-    if (n <= 0) return;
-    buf[n] = '\0';
+/* 完整读取一个 HTTP 请求：TCP 是字节流，浏览器/代理常把请求头拆成多个报文
+ * （大 Cookie、UA 或 TLS 分片时尤其明显）。旧实现只 recv 一次，头部被截断时
+ * 解析不到 Cookie → 已登录用户刷新/切换页面被判定未登录而跳回登录页。
+ * 这里循环读到 "\r\n\r\n" 为止，再按 Content-Length 补齐 body。 */
+static ssize_t read_http_request(int fd, char *buf, size_t cap) {
+    size_t used = 0;
+    char *hdr_end = NULL;
+
+    while (used + 1 < cap) {
+        ssize_t r = recv(fd, buf + used, cap - 1 - used, 0);
+        if (r <= 0) break;
+        used += (size_t)r;
+        buf[used] = '\0';
+        hdr_end = strstr(buf, "\r\n\r\n");
+        if (hdr_end) break;
+    }
+    if (used == 0) return -1;
+    if (!hdr_end) return (ssize_t)used;   /* 头部不完整（超时/超长）：交给调用方拒绝 */
 
     /* POST：按 Content-Length 补读 body（管理 API 需要完整表单） */
-    size_t used = (size_t)n;
     char *cl = strcasestr(buf, "Content-Length:");
-    if (cl) {
+    if (cl && cl < hdr_end) {
         long want = strtol(cl + 15, NULL, 10);
         if (want > 0 && want < MAX_POST_BODY) {
-            char *hdr_end = strstr(buf, "\r\n\r\n");
-            if (hdr_end) {
-                size_t hdr_len = (size_t)(hdr_end + 4 - buf);
-                size_t total = hdr_len + (size_t)want;
-                if (total > sizeof(buf) - 1) total = sizeof(buf) - 1;
-                while (used < total) {
-                    ssize_t r = recv(fd, buf + used, sizeof(buf) - 1 - used, 0);
-                    if (r <= 0) break;
-                    used += (size_t)r;
-                }
-                buf[used] = '\0';
+            size_t hdr_len = (size_t)(hdr_end + 4 - buf);
+            size_t total = hdr_len + (size_t)want;
+            if (total > cap - 1) total = cap - 1;
+            while (used < total) {
+                ssize_t r = recv(fd, buf + used, cap - 1 - used, 0);
+                if (r <= 0) break;
+                used += (size_t)r;
             }
+            buf[used] = '\0';
         }
     }
+    return (ssize_t)used;
+}
+
+static void handle_client(int fd, const char *client_ip, int on_admin_plane) {
+    char buf[RECV_BUF_SIZE];
+    ssize_t n = read_http_request(fd, buf, sizeof(buf));
+    if (n <= 0) return;
 
     /* 解析请求行: METHOD SP PATH SP VERSION */
     char method[16] = "", path[2048] = "";
