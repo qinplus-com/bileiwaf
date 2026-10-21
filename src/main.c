@@ -509,6 +509,11 @@ static const char *chk_find_waf_conf(char *out, size_t outsz) {
     return NULL;
 }
 
+/* 默认自签证书路径：由 waf 启动脚本首次启动时自动生成 */
+static int chk_is_autogen_cert(const char *cert) {
+    return !strcmp(cert, "certs/server.pem") || !strcmp(cert, "certs/server.crt");
+}
+
 /* 校验证书/私钥可读且配对；err 返回原因 */
 static int chk_cert_pair(const char *cert, const char *key, char *err, size_t errsz) {
 #if defined(USE_OPENSSL)
@@ -616,8 +621,10 @@ static void chk_site_file(const char *path, char seen[][256], int *seen_n, int m
     if (!enabled) return;   /* 停用站点不参与后续校验 */
 
     if (ssl_en) {
-        if (!cert[0] || !key[0]) chk_msg(1, path, 0, "[ssl] enabled=1 但缺少 cert_file/key_file");
-        else {
+        /* 两者都留空表示复用 waf.conf 的全局证书（默认自签），属合法配置 */
+        if (!cert[0] != !key[0])
+            chk_msg(1, path, 0, "[ssl] enabled=1 时 cert_file 与 key_file 必须成对配置");
+        else if (cert[0] && key[0]) {
             char err[600];
             if (chk_cert_pair(cert, key, err, sizeof(err)) != 0)
                 chk_msg(1, path, 0, "%s", err);
@@ -696,7 +703,10 @@ next_line:  ;
             chk_msg(1, found, 0, "cert_file 与 key_file 必须成对配置");
         else if (ssl_cert_set && cert[0] && key[0]) {
             char err[600];
-            if (chk_cert_pair(cert, key, err, sizeof(err)) != 0)
+            /* 默认自签证书由 `waf start` 首次启动时生成，此处仅提示 */
+            if (access(cert, R_OK) != 0 && chk_is_autogen_cert(cert))
+                chk_msg(0, found, 0, "证书尚未生成，首次启动将自动创建自签证书: %s", cert);
+            else if (chk_cert_pair(cert, key, err, sizeof(err)) != 0)
                 chk_msg(1, found, 0, "%s", err);
         }
         if (access(rules_dir, R_OK) != 0) {

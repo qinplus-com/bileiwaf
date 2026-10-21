@@ -1,5 +1,5 @@
 Name:          bileiwaf
-Version:       1.0.0
+Version:       1.0.1
 Release:       1%{?dist}
 Summary:       BileiWAF - 一体化 Web 应用防火墙（反向代理 + 规则引擎）
 License:       Apache-2.0
@@ -83,6 +83,12 @@ fi
 /usr/lib/systemd/system/bileiwaf.service
 
 %changelog
+* Wed Oct 21 2026 BileiWAF Team <dev@dbask.cn> - 1.0.1-1
+- 修复管理后台登录后刷新/切换页面偶发跳回登录页（分段请求头丢 Cookie）
+- 新建站点生成完整站点配置，并自动签发自签证书（含 SAN）
+- 新增 waf check / bileiwaf check / bileiwaf -t 配置校验命令
+- 自签证书兼容 el7 OpenSSL 1.0.2
+
 * Wed Oct 21 2026 BileiWAF Team <dev@dbask.cn> - 1.0.0-1
 - 正式发布 1.0.0：管理后台 RBAC（admin 全功能 / monitor 仅监控大屏）
 - 新增自定义 404 页面（error_404_page 配置项）
