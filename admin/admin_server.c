@@ -901,7 +901,8 @@ static void collect_stats(stats_data_t *s) {
     qsort(s->ips,   (size_t)s->nips,   sizeof(counter_t), cmp_counter_desc);
     qsort(s->rules, (size_t)s->nrules, sizeof(counter_t), cmp_counter_desc);
     qsort(s->paths, (size_t)s->npaths, sizeof(counter_t), cmp_counter_desc);
-    /* WAF 拦截(403)仅写攻击日志不写访问日志，forbidden 以攻击日志拦截数为准 */
+    /* 1.0.3 起反代与 403 拦截均写访问日志，forbidden 与攻击日志拦截数口径一致；
+     * 保留以攻击日志为准，兼容 1.0.3 之前的历史日志 */
     s->req_forbidden = s->atk_blocked;
 }
 

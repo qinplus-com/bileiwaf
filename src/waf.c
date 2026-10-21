@@ -439,6 +439,23 @@ static void serve_acme_challenge(int client_fd, http_request_t *req, waf_site_co
     }
 }
 
+/* 统一写访问日志：反代与拦截请求此前不写 waf-access.log，导致管理后台
+ * “请求总数”只覆盖本地静态请求，出现攻击数 > 请求数的口径倒挂。 */
+static void waf_log_request(const char *ip, const char *method, const char *url,
+                            int status, long bytes_sent) {
+    access_log_entry_t al = {
+        .timestamp = time(NULL),
+        .status_code = status,
+        .bytes_received = 0,
+        .bytes_sent = bytes_sent,
+        .response_time = 0
+    };
+    strncpy(al.ip, ip, MAX_IP_LENGTH - 1);
+    strncpy(al.method, method, sizeof(al.method) - 1);
+    strncpy(al.url, url, MAX_URL_LENGTH - 1);
+    log_write_access(&al);
+}
+
 int serve_static_file(int client_fd, http_request_t *req, waf_site_config_t *site, SSL *ssl, int is_https, int keep_alive) {
     const char *doc_root = (site && site->document_root[0]) ? site->document_root : "web";
     const char *path = req->path;
@@ -1042,6 +1059,8 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
                 } else {
                     http_send_response(client_fd, &blocked_resp);
                 }
+                waf_log_request(client_ip, request.method, request.url, 403,
+                                (long)strlen(waf_blocked_html));
                 if (!keep_alive) break;
                 continue;
             }
@@ -1070,6 +1089,7 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
         if (backend_fd == -2) {
             /* 后端已连通但请求写失败：返回 502，不让客户端挂起 */
             proxy_send_gateway_error(client_fd, ssl, keep_alive, 502, "Bad Gateway");
+            waf_log_request(client_ip, request.method, request.url, 502, 0);
             if (!keep_alive) break;
             continue;
         }
@@ -1102,12 +1122,18 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
              * - 完全没读到（含后端读超时）：返回 504，让客户端快速得到明确结果。 */
             if (hdr_total > 0) {
                 proxy_send_all(client_fd, ssl, hdr_buf, hdr_total);
+                waf_log_request(client_ip, request.method, request.url, 502, (long)hdr_total);
             } else {
                 proxy_send_gateway_error(client_fd, ssl, 0, 504, "Gateway Timeout");
+                waf_log_request(client_ip, request.method, request.url, 504, 0);
             }
             close(backend_fd);
             break;
         }
+
+        /* 从状态行解析响应码，供访问日志使用 */
+        int resp_status = 0;
+        sscanf(hdr_buf, "HTTP/%*d.%*d %d", &resp_status);
 
         /* 翻译（保持原行为：仅翻译首个缓冲区，命中后发送译文并关闭连接） */
         if (site && site->translate_enabled && site->target_lang_count > 0) {
@@ -1139,6 +1165,8 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
             }
             if (use_translated) {
                 proxy_send_all(client_fd, ssl, translated_buffer, strlen(translated_buffer));
+                waf_log_request(client_ip, request.method, request.url,
+                                resp_status > 0 ? resp_status : 200, (long)strlen(translated_buffer));
                 close(backend_fd);
                 break;
             }
@@ -1173,6 +1201,7 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
             close(backend_fd);
             break;
         }
+        long resp_bytes = (long)out_len + (long)body_in_buf;
 
         if (content_length >= 0) {
             /* 按剩余长度精确转发 body */
@@ -1183,6 +1212,7 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
                 if (n < 0 && errno == EINTR) continue;
                 if (n <= 0) { remaining = -1; break; }
                 if (proxy_send_all(client_fd, ssl, hdr_buf, (size_t)n) < 0) { remaining = -1; break; }
+                resp_bytes += n;
                 remaining -= n;
             }
             if (remaining != 0) { close(backend_fd); break; }  /* 转发不完整，关连接 */
@@ -1191,9 +1221,12 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
             ssize_t n;
             while ((n = recv(backend_fd, hdr_buf, sizeof(hdr_buf), 0)) > 0) {
                 if (proxy_send_all(client_fd, ssl, hdr_buf, (size_t)n) < 0) break;
+                resp_bytes += n;
             }
         }
         close(backend_fd);
+        waf_log_request(client_ip, request.method, request.url,
+                        resp_status > 0 ? resp_status : 200, resp_bytes);
 
         if (!proxy_keep) break;
         continue;
