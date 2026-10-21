@@ -32,6 +32,7 @@ void print_usage(const char *prog) {
     printf("  restart         Restart WAF service\n");
     printf("  sites           Show configured sites\n");
     printf("  check, -t       Validate configuration (like nginx -t)\n");
+    printf("  version         Show version information\n");
     printf("  backend         Manage backend services\n");
     printf("  cert            Manage SSL certificates\n");
     printf("  webadmin        WAF management interface (HTTP/HTTPS)\n");
@@ -84,6 +85,7 @@ void print_usage(const char *prog) {
 
 void print_version(void) {
     printf("WAF (Web Application Firewall) v%s\n", WAF_VERSION);
+    printf("Build: %s\n", WAF_BUILD_DATE);
     printf("Built for Linux\n");
     printf("Developer: qinplus.com\n");
     printf("\n");
@@ -2825,7 +2827,8 @@ int main(int argc, char *argv[]) {
         return 0;
     }
     
-    if (strcmp(command, "-v") == 0 || strcmp(command, "--version") == 0) {
+    if (strcmp(command, "-v") == 0 || strcmp(command, "--version") == 0 ||
+        strcmp(command, "version") == 0) {
         print_version();
         return 0;
     }

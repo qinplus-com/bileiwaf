@@ -81,7 +81,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(VERSION_H) $(wildcard $(INC_DIR)/*.h)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # ---- 管理平面（可选链接 libmaxminddb 做 IP 地理定位；未检测到则自动降级）----
-$(ADMIN_TARGET): $(ADMIN_DIR)/admin_server.c
+$(ADMIN_TARGET): $(ADMIN_DIR)/admin_server.c $(VERSION_H)
 	$(CC) $(BASE_CFLAGS) $(GEOIP_CF) $(PTHREAD_CF) -o $@ $< $(GEOIP_LIB)
 	@echo "==> 管理平面就绪: $@"
 

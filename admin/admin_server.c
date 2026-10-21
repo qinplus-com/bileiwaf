@@ -39,6 +39,8 @@
 #include <poll.h>
 #include <sys/wait.h>
 
+#include "../include/version.h"
+
 #define RECV_BUF_SIZE   65536
 #define MAX_RESPONSE    (8 * 1024 * 1024)
 #define LOG_TAIL_BYTES  (64 * 1024)
@@ -2292,6 +2294,11 @@ static int ssl_cert_is_le(const char *cert) {
     return strstr(buf, "Let's Encrypt") != NULL;
 }
 
+/* certbot 是否可用（续期 Let's Encrypt 证书的前提） */
+static int certbot_available(void) {
+    return system("command -v certbot >/dev/null 2>&1") == 0;
+}
+
 /* LE 证书名 = cert_file 父目录名（.../letsencrypt/dbask.cn/fullchain.pem → dbask.cn） */
 static void cert_le_name(const char *cert, char *out, size_t outsz) {
     out[0] = '\0';
@@ -2353,7 +2360,20 @@ static int renew_one_cert(const char *domain, const char *docroot,
     if (ssl_cert_is_le(cert)) {
         char name[256]; cert_le_name(cert, name, sizeof(name));
         if (!name[0] || !safe_fs_path(name)) { snprintf(msg, msgsz, "无法解析证书名"); return -1; }
-        const char *wr = (docroot[0] && safe_fs_path(docroot)) ? docroot : "/web";
+        if (!certbot_available()) {
+            snprintf(msg, msgsz, "certbot 未安装，无法续期 Let's Encrypt 证书（yum install certbot）");
+            return -1;
+        }
+        /* 固定 webroot：数据平面本机响应 /.well-known/acme-challenge/，
+         * 不依赖业务站点 document_root（反代站点通常没有可用的该目录） */
+        char acme[900], mkd[1000];
+        snprintf(acme, sizeof(acme), "%s/web/acme", waf_home());
+        snprintf(mkd, sizeof(mkd), "mkdir -p '%s/.well-known/acme-challenge'", acme);
+        const char *wr = acme;
+        if (system(mkd) != 0) {
+            if (docroot[0] && safe_fs_path(docroot)) wr = docroot;
+            else { snprintf(msg, msgsz, "无法创建 ACME webroot：%s", acme); return -1; }
+        }
         char cmd[1400], out[8192];
         snprintf(cmd, sizeof(cmd),
             "certbot renew --cert-name '%s' -a webroot -w '%s' --no-random-sleep-on-renew %s 2>&1",
@@ -2363,24 +2383,38 @@ static int renew_one_cert(const char *domain, const char *docroot,
             snprintf(msg, msgsz, "certbot 续期失败：%s", el);
             return -1;
         }
-        /* certbot 在证书未临近到期时不执行续期（exit 0），据输出判定为跳过，避免误报已续期 */
-        if (strstr(out, "No renewals were attempted") ||
-            strstr(out, "not yet due for renewal")) {
-            snprintf(msg, msgsz, "Let's Encrypt 证书未临近到期，跳过");
-            return 1;
-        }
+        /* certbot 在证书未临近到期时不执行续期（exit 0）。但 certbot 自身 timer
+         * 可能已先行续期，此时 live 目录产物比站点副本新，需要回填。 */
         char livec[700], livek[700];
         snprintf(livec, sizeof(livec), "/etc/letsencrypt/live/%s/fullchain.pem", name);
         snprintf(livek, sizeof(livek), "/etc/letsencrypt/live/%s/privkey.pem", name);
-        if (!safe_fs_path(livec) || access(livec, R_OK) != 0) {
-            snprintf(msg, msgsz, "续期成功但未找到签发产物"); return -1;
+        int not_due = strstr(out, "No renewals were attempted") ||
+                      strstr(out, "not yet due for renewal");
+        if (not_due) {
+            if (!safe_fs_path(livec) || access(livec, R_OK) != 0) {
+                snprintf(msg, msgsz, "Let's Encrypt 证书未临近到期，跳过");
+                return 1;
+            }
+            char cmp[1500];
+            snprintf(cmp, sizeof(cmp), "cmp -s '%s' '%s'", livec, cert);
+            if (system(cmp) == 0) {
+                snprintf(msg, msgsz, "Let's Encrypt 证书未临近到期，跳过");
+                return 1;
+            }
+            /* 外部续期产物与站点副本不一致：继续走回填 */
+        }
+        if (!safe_fs_path(livec) || access(livec, R_OK) != 0 ||
+            !safe_fs_path(livek) || access(livek, R_OK) != 0) {
+            snprintf(msg, msgsz, not_due ? "证书未变化，跳过" : "续期成功但未找到签发产物");
+            return not_due ? 1 : -1;
         }
         char cp[1600];
         snprintf(cp, sizeof(cp),
             "cp -f '%s' '%s' && cp -f '%s' '%s' && chmod 644 '%s' && chmod 600 '%s'",
             livec, cert, livek, key, cert, key);
         if (system(cp) != 0) { snprintf(msg, msgsz, "续期成功但证书回填失败"); return -1; }
-        snprintf(msg, msgsz, "Let's Encrypt 证书已续期并回填");
+        snprintf(msg, msgsz, not_due ? "已同步 certbot 最新证书（外部续期）"
+                                     : "Let's Encrypt 证书已续期并回填");
         return 0;
     }
 
@@ -2396,11 +2430,27 @@ static int renew_one_cert(const char *domain, const char *docroot,
     if (!cn[0]) snprintf(cn, sizeof(cn), "%s", domain);
     if (!cn[0] || !safe_fs_path(cn)) { snprintf(msg, msgsz, "无法确定 CN"); return -1; }
     char gcmd[1600], dummy2[64];
+    /* 用临时 openssl 配置文件写入 SAN：兼容 el7 的 OpenSSL 1.0.2
+     * （该版本不支持 req 的 -addext 选项） */
+    char cnf[256], cnf_body[1024];
+    snprintf(cnf, sizeof(cnf), "/tmp/waf-selfsign-%d.cnf", (int)getpid());
+    FILE *cf = fopen(cnf, "w");
+    if (!cf) { snprintf(msg, msgsz, "无法创建自签配置文件"); return -1; }
+    snprintf(cnf_body, sizeof(cnf_body),
+        "[req]\nprompt = no\ndistinguished_name = dn\nx509_extensions = v3_req\n\n"
+        "[dn]\nCN = %s\n\n"
+        "[v3_req]\nsubjectAltName = DNS:%s\nbasicConstraints = CA:FALSE\n"
+        "keyUsage = digitalSignature, keyEncipherment\nextendedKeyUsage = serverAuth\n",
+        cn, cn);
+    fputs(cnf_body, cf);
+    fclose(cf);
     snprintf(gcmd, sizeof(gcmd),
         "openssl req -x509 -newkey rsa:2048 -nodes -keyout '%s' -out '%s' -days 365 "
-        "-subj '/CN=%s' -addext 'subjectAltName=DNS:%s' 2>/dev/null",
-        key, cert, cn, cn);
-    if (run_capture(gcmd, dummy2, sizeof(dummy2)) != 0) {
+        "-config '%s' -extensions v3_req 2>/dev/null",
+        key, cert, cnf);
+    int rc = run_capture(gcmd, dummy2, sizeof(dummy2));
+    unlink(cnf);
+    if (rc != 0) {
         snprintf(msg, msgsz, "自签重签失败"); return -1;
     }
     chmod(cert, 0644); chmod(key, 0600);
@@ -2423,13 +2473,13 @@ static int signal_data_plane_reload(void) {
 
 /* 续期所有站点证书；only_domain 非空则仅该域名。结果 JSON 写 out，
  * 返回续期成功数，*failed 写失败数 */
-static int renew_all_sites(const char *only_domain, int force,
-                           char *out, size_t outsz, int *failed) {
+static int renew_all_sites(const char *only_domain, int force, int log_detail,
+                           char *out, size_t outsz, int *failed, int *skipped) {
     char sdir[600];
     snprintf(sdir, sizeof(sdir), "%s/config/sites", waf_home());
     DIR *d = opendir(sdir);
     size_t off = 0;
-    int ok = 0, nf = 0, first = 1;
+    int ok = 0, nf = 0, nsk = 0, first = 1;
     char seen[32][700];   /* 已处理证书路径：多站点共用一个证书时避免重复续期 */
     int seen_n = 0;
     off += snprintf(out + off, outsz - off, "[");
@@ -2451,7 +2501,19 @@ static int renew_all_sites(const char *only_domain, int force,
             if (seen_n < 32) snprintf(seen[seen_n++], sizeof(seen[0]), "%s", cert);
             char msg[600];
             int rc = renew_one_cert(domain, docroot, cert, key, force, msg, sizeof(msg));
-            if (rc == 0) ok++; else if (rc < 0) nf++;
+            if (rc == 0) ok++; else if (rc < 0) nf++; else nsk++;
+            if (log_detail) {
+                char lp[700];
+                snprintf(lp, sizeof(lp), "%s/logs/admin.log", waf_home());
+                FILE *lg = fopen(lp, "a");
+                if (lg) {
+                    char ts[32]; time_t now = time(NULL);
+                    strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", localtime(&now));
+                    fprintf(lg, "[%s] [auto-renew] %s: %s - %s\n", ts, domain,
+                            rc == 0 ? "renewed" : (rc == 1 ? "skipped" : "failed"), msg);
+                    fclose(lg);
+                }
+            }
             char escd[300], escm[900];
             json_escape(domain, escd, sizeof(escd));
             json_escape(msg, escm, sizeof(escm));
@@ -2465,6 +2527,7 @@ static int renew_all_sites(const char *only_domain, int force,
     }
     off += snprintf(out + off, outsz - off, "]");
     if (failed) *failed = nf;
+    if (skipped) *skipped = nsk;
     return ok;
 }
 
@@ -2487,12 +2550,12 @@ static void handle_admin_certs_renew(int fd, const char *post) {
         pthread_mutex_unlock(&g_renew_lock);
         send_error(fd, "500 Internal Server Error", "oom"); return;
     }
-    int failed = 0;
-    int ok = renew_all_sites(domain, 1, out, 65536, &failed);
+    int failed = 0, skipped = 0;
+    int ok = renew_all_sites(domain, 1, 0, out, 65536, &failed, &skipped);
     int signaled = (ok > 0) ? signal_data_plane_reload() : 0;
     int bl = snprintf(body, 65536,
-        "{\"success\":true,\"renewed\":%d,\"failed\":%d,\"ssl_reloaded\":%s,\"results\":%s}",
-        ok, failed, signaled ? "true" : "false", out);
+        "{\"success\":true,\"renewed\":%d,\"skipped\":%d,\"failed\":%d,\"ssl_reloaded\":%s,\"results\":%s}",
+        ok, skipped, failed, signaled ? "true" : "false", out);
     send_response(fd, "200 OK", "application/json", body, (size_t)bl);
     free(out); free(body);
     pthread_mutex_unlock(&g_renew_lock);
@@ -2506,20 +2569,20 @@ static void *cert_autorenew_thread(void *arg) {
         if (pthread_mutex_trylock(&g_renew_lock) == 0) {
             char *out = malloc(65536);
             if (out) {
-                int failed = 0;
-                int ok = renew_all_sites(NULL, 0, out, 65536, &failed);
-                if (ok > 0) {
-                    signal_data_plane_reload();
-                    char lp[700];
-                    snprintf(lp, sizeof(lp), "%s/logs/admin.log", waf_home());
-                    FILE *lg = fopen(lp, "a");
-                    if (lg) {
-                        char ts[32]; time_t now = time(NULL);
-                        strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", localtime(&now));
-                        fprintf(lg, "[%s] [auto-renew] %d certificate(s) renewed, %d failed, ssl reload signaled\n",
-                                ts, ok, failed);
-                        fclose(lg);
-                    }
+                int failed = 0, skipped = 0;
+                int ok = renew_all_sites(NULL, 0, 1, out, 65536, &failed, &skipped);
+                int signaled = 0;
+                if (ok > 0) signaled = signal_data_plane_reload();
+                /* 无论成功、跳过还是失败都记录，便于排查自动续期是否真正运行 */
+                char lp[700];
+                snprintf(lp, sizeof(lp), "%s/logs/admin.log", waf_home());
+                FILE *lg = fopen(lp, "a");
+                if (lg) {
+                    char ts[32]; time_t now = time(NULL);
+                    strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", localtime(&now));
+                    fprintf(lg, "[%s] [auto-renew] summary: renewed=%d skipped=%d failed=%d ssl_reload=%d certbot=%d\n",
+                            ts, ok, skipped, failed, signaled, certbot_available());
+                    fclose(lg);
                 }
                 free(out);
             }
@@ -2576,6 +2639,14 @@ static void handle_admin_logout(int fd, const char *cookie_hdr) {
         "Set-Cookie: waf_admin_sess=; Path=/; HttpOnly; Max-Age=0\r\n");
 }
 
+static void handle_admin_version(int fd) {
+    char body[256];
+    snprintf(body, sizeof(body),
+        "{\"success\":true,\"version\":\"%s\",\"build\":\"%s\"}",
+        WAF_VERSION, WAF_BUILD_DATE);
+    send_json(fd, body);
+}
+
 static void handle_admin_session(int fd, const char *cookie_hdr) {
     char tok[80];
     cookie_val(cookie_hdr, "waf_admin_sess", tok, sizeof(tok));
@@ -2585,13 +2656,15 @@ static void handle_admin_session(int fd, const char *cookie_hdr) {
         char uesc[300]; json_escape(suser, uesc, sizeof(uesc));
         snprintf(body, sizeof(body),
             "{\"success\":true,\"authenticated\":true,\"user\":\"%s\",\"role\":\"%s\","
+            "\"version\":\"%s\",\"build\":\"%s\","
             "\"listen\":{\"backend_port\":%d,\"admin_port\":%d}}",
-            uesc, srole, g_backend_port, g_admin_port);
+            uesc, srole, WAF_VERSION, WAF_BUILD_DATE, g_backend_port, g_admin_port);
     } else {
         snprintf(body, sizeof(body),
             "{\"success\":true,\"authenticated\":false,"
+            "\"version\":\"%s\",\"build\":\"%s\","
             "\"listen\":{\"backend_port\":%d,\"admin_port\":%d}}",
-            g_backend_port, g_admin_port);
+            WAF_VERSION, WAF_BUILD_DATE, g_backend_port, g_admin_port);
     }
     send_json(fd, body);
 }
@@ -2743,6 +2816,7 @@ static void handle_client(int fd, const char *client_ip, int on_admin_plane) {
         return;
     }
     if (strcmp(path, "/api/admin/session") == 0) { handle_admin_session(fd, cookie_hdr); return; }
+    if (strcmp(path, "/api/admin/version") == 0) { handle_admin_version(fd); return; }
 
     /* 其余 /api/admin/ 下的路径一律需要登录 */
     if (strncmp(path, "/api/admin/", 11) == 0) {

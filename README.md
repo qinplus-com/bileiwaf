@@ -58,8 +58,8 @@ sudo dnf install -y gcc make openssl-devel libcurl-devel json-c-devel libmaxmind
 
 | 目标系统 | 预编译包 | RPM |
 |---|---|---|
-| el7 系（CentOS 7 / RHEL 7，glibc 2.17、OpenSSL 1.0.2） | `bileiwaf-1.0.1-bin-el7-x86_64.tar.gz` | `bileiwaf-1.0.1-1.el7.x86_64.rpm` |
-| el8 系（CentOS 8 / Rocky 8 / openEuler，glibc 2.28、OpenSSL 1.1） | `bileiwaf-1.0.1-bin-el8-x86_64.tar.gz` | `bileiwaf-1.0.1-1.<dist>.x86_64.rpm` |
+| el7 系（CentOS 7 / RHEL 7，glibc 2.17、OpenSSL 1.0.2） | `bileiwaf-1.0.2-bin-el7-x86_64.tar.gz` | `bileiwaf-1.0.2-1.el7.x86_64.rpm` |
+| el8 系（CentOS 8 / Rocky 8 / openEuler，glibc 2.28、OpenSSL 1.1） | `bileiwaf-1.0.2-bin-el8-x86_64.tar.gz` | `bileiwaf-1.0.2-1.<dist>.x86_64.rpm` |
 
 预编译包解压到 `/` 即可（内含 `opt/bileiwaf/` 与 systemd 单元）。libmaxminddb 为运行期可选：
 未安装时管理后台与监控大屏正常工作，仅 IP 地理来源显示为「—」。

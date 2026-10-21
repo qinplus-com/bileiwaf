@@ -2,6 +2,24 @@
 
 本项目遵循语义化版本。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.0.2] - 2026-10-21
+
+### 新增
+
+- 版本号显示：`bileiwaf version` / `./waf version`，管理后台登录页与侧边栏页脚，
+  以及 `/api/admin/version` 接口（会话接口同时返回版本与构建时间）。
+- 数据平面本机响应 `/.well-known/acme-challenge/`：Let's Encrypt HTTP-01 校验
+  不再转发到业务后端，反代站点也可完成签发与续期。
+
+### 修复
+
+- Let's Encrypt 自动续期在 certbot 未安装时无明确提示：现在返回可操作的错误信息。
+- certbot 自身 timer 先行续期后，站点证书副本长期陈旧：未到期分支会比较
+  `/etc/letsencrypt/live/<证书名>/` 与站点证书，不一致时自动回填并热加载。
+- 自动续期后台线程仅在成功时写日志：现在每次运行都记录汇总与逐站点结果
+  （成功 / 跳过 / 失败），并记录 certbot 可用状态。
+- 自签证书重签改用临时 openssl 配置文件写入 SAN，兼容 el7 的 OpenSSL 1.0.2。
+
 ## [1.0.1] - 2026-10-21
 
 ### 修复

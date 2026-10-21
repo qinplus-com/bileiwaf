@@ -394,6 +394,51 @@ static size_t build_not_found_body(char *out, size_t cap) {
     return demo_len + popup_len;
 }
 
+/* ACME HTTP-01 挑战：Let's Encrypt 校验请求必须由 WAF 本机直接响应。
+ * 反代站点的后端通常没有 challenge 文件，若转发到后端必然校验失败。
+ * 优先读取 WAF 固定 webroot（web/acme，续期时 certbot -w 指向此处），
+ * 兼容历史配置把挑战文件写入站点 document_root 的情况。 */
+static void serve_acme_challenge(int client_fd, http_request_t *req, waf_site_config_t *site,
+                                 SSL *ssl, int is_https, int keep_alive) {
+    static const char prefix[] = "/.well-known/acme-challenge/";
+    const char *token = req->path + sizeof(prefix) - 1;
+    char file_path[4096];
+    FILE *file = NULL;
+
+    /* 挑战文件名仅允许安全字符，杜绝路径穿越 */
+    if (token[0] && !strchr(token, '/') && !strstr(token, "..") &&
+        strcmp(req->method, "GET") == 0) {
+        snprintf(file_path, sizeof(file_path), "web/acme%s", req->path);
+        file = fopen(file_path, "rb");
+        if (!file && site && site->document_root[0]) {
+            snprintf(file_path, sizeof(file_path), "%s%s", site->document_root, req->path);
+            file = fopen(file_path, "rb");
+        }
+    }
+
+    http_response_t resp = {0};
+    if (file) {
+        char body[8192];
+        size_t n = fread(body, 1, sizeof(body) - 1, file);
+        fclose(file);
+        resp.status_code = 200;
+        strcpy(resp.status_message, "OK");
+        http_set_body(&resp, body, n);
+    } else {
+        resp.status_code = 404;
+        strcpy(resp.status_message, "Not Found");
+        http_set_body(&resp, "not found", 9);
+    }
+    http_set_connection_header(&resp, keep_alive);
+    if (is_https) {
+        char resp_buf[MAX_REQUEST_SIZE];
+        int resp_len = http_build_response(&resp, resp_buf, sizeof(resp_buf));
+        waf_ssl_send(ssl, resp_buf, resp_len);
+    } else {
+        http_send_response(client_fd, &resp);
+    }
+}
+
 int serve_static_file(int client_fd, http_request_t *req, waf_site_config_t *site, SSL *ssl, int is_https, int keep_alive) {
     const char *doc_root = (site && site->document_root[0]) ? site->document_root : "web";
     const char *path = req->path;
@@ -867,6 +912,13 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
         char host_header[256];
         if (http_get_header_value(request.headers, "Host", host_header, sizeof(host_header)) >= 0) {
             site = waf_find_site(&global_config, host_header);
+        }
+
+        /* ACME HTTP-01 挑战：由本机直接响应，不进入规则/CC 检测，也不转发后端 */
+        if (strncmp(request.path, "/.well-known/acme-challenge/", 28) == 0) {
+            serve_acme_challenge(client_fd, &request, site, ssl, is_https, keep_alive);
+            if (!keep_alive) break;
+            continue;
         }
 
         /* waf.dbask.cn 管理后台：直接返回静态文件 */

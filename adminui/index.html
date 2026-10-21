@@ -157,7 +157,7 @@ button{cursor:pointer;border:none;border-radius:6px;font-family:inherit}
         <button id="btn_out">退出</button>
       </div>
     </div>
-    <div class="sb-foot">© 2026 <b>内蒙古勤加软件有限公司</b><br>壁垒WAF BILEIWAF</div>
+    <div class="sb-foot">© 2026 <b>内蒙古勤加软件有限公司</b><br>壁垒WAF BILEIWAF <span id="sb_ver"></span></div>
   </aside>
 
   <main class="main">
@@ -390,6 +390,7 @@ const enc=v=>encodeURIComponent(v==null?"":v);
 async function boot(){
   try{
     const j=await api("/api/admin/session");
+    if(j&&j.version){ const v=$("sb_ver"); if(v) v.textContent="v"+j.version; }
     if(j&&j.authenticated){
       $("u_name").textContent=j.user||"admin";
       /* 角色显隐：admin=后台全部功能；monitor（监控人员）仅监控大屏 */

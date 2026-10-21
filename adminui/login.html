@@ -99,7 +99,7 @@ button{cursor:pointer;border:none;border-radius:10px;font-size:14px;font-family:
       <input id="li_pass" name="pass" type="password" autocomplete="current-password" placeholder="请输入密码"></div></div>
   <button class="btn-main" id="li_btn">登 录</button>
   <div class="login-err" id="li_err"></div>
-  <div class="foot">© 2026 <b>内蒙古勤加软件有限公司</b><br>壁垒WAF BILEIWAF 管理后台</div>
+  <div class="foot">© 2026 <b>内蒙古勤加软件有限公司</b><br>壁垒WAF BILEIWAF 管理后台 <span id="li_ver"></span></div>
 </div>
 <script>
 "use strict";
@@ -110,6 +110,10 @@ async function postForm(path,body){
   return r.json().catch(()=>({success:false,message:"响应解析失败"}));
 }
 async function boot(){
+  try{
+    const vr=await fetch("/api/admin/version"); const vj=await vr.json();
+    if(vj&&vj.version) $("li_ver").textContent="v"+vj.version;
+  }catch(e){}
   try{
     const r=await fetch("/api/admin/session"); const j=await r.json();
     if(j&&j.authenticated) location.replace("/admin/dashboard");

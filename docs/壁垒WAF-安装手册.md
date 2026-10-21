@@ -141,6 +141,7 @@ cd /opt/bileiwaf
 sudo ./waf start                        # 启动全部平面（数据 80/443 + 管理平面）
 sudo ./waf start -p 8080 -s 8444 -b 127.0.0.1:9000 -a 19000   # 自定义端口启动
 sudo ./waf status                       # 查看运行状态（运行中 exit 0，停止 exit 3）
+sudo ./waf version                      # 显示版本号与构建时间
 sudo ./waf restart                      # 重启
 sudo ./waf stop                         # 停止全部平面；stop waf / stop admin 可单独停止
 ```
@@ -265,6 +266,13 @@ site = www.example.com.conf
 
 1. **自动自签名**：首次启动检测到证书缺失时自动生成（仅测试用）；
 2. **Let's Encrypt 自动签发/续期**：管理后台 → 证书管理 → 选择站点 → 一键签发/续期（ACME 自动化），续期完成后自动热加载，无需重启；
+   - 依赖 `certbot`（el 系 `yum install certbot`，deb 系 `apt install certbot`）；
+   - 管理平面后台线程每 24 小时扫描站点证书，临近到期（≤30 天）自动续期；
+   - HTTP-01 挑战由数据平面直接响应 `/.well-known/acme-challenge/`，不转发业务后端，
+     因此反代站点无需后端配合；挑战文件位于 `web/acme/.well-known/acme-challenge/`；
+   - 若 certbot 自身 timer 已先完成续期，WAF 会检测站点证书副本与
+     `/etc/letsencrypt/live/<证书名>/` 不一致并自动回填；
+   - 每次自动续期结果（成功 / 跳过 / 失败）写入 `logs/admin.log` 的 `[auto-renew]` 行；
 3. **手动上传**：管理后台 → 证书管理 → 上传 `fullchain.pem` + `privkey.pem`；
 4. **替换配置**：将 `cert_file` / `key_file` 指向正式证书路径后 `./waf restart`。
 
