@@ -799,6 +799,108 @@ static long data_plane_uptime(void) {
     return (long)(time(NULL) - g_start_time);
 }
 
+/* 解析单个攻击日志文件（当前文件或轮转归档），累计到 s */
+static void stats_parse_attack_fp(stats_data_t *s, FILE *fp, const char *today_str, time_t now) {
+    char line[4096];
+    char cur_type[64] = "UNKNOWN", cur_rule[80] = "-", cur_action[16] = "LOG", cur_ts[32] = "";
+    int cur_sev = 0;
+    time_t cur_epoch = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        if (line[0] == '[' && strstr(line, " ATTACK |")) {
+            sscanf(line + 1, "%31[^]]", cur_ts);
+            cur_epoch = parse_log_ts(cur_ts);
+            char *p, *b;
+            if ((p = strstr(line, "Type: "))) {
+                sscanf(p + 6, "%63s", cur_type);
+                if ((b = strchr(cur_type, '|'))) *b = '\0';
+            }
+            if ((p = strstr(line, "Severity: "))) cur_sev = atoi(p + 10);
+            if ((p = strstr(line, "Rule: "))) {
+                sscanf(p + 6, "%79s", cur_rule);
+                if ((b = strchr(cur_rule, '|'))) *b = '\0';
+            }
+            if ((p = strstr(line, "Action: "))) sscanf(p + 8, "%15s", cur_action);
+
+            s->atk_total++;
+            if (!strcmp(cur_action, "BLOCK")) s->atk_blocked++; else s->atk_logged++;
+            if (!strncmp(cur_ts, today_str, 10)) s->atk_today++;
+            if (cur_epoch > 0 && now - cur_epoch < 86400) {
+                int bucket = (int)((now - cur_epoch) / 3600);
+                if (bucket >= 0 && bucket < 24) {
+                    s->trend[23 - bucket]++;
+                    if (!strcmp(cur_action, "BLOCK")) s->trend_blk[23 - bucket]++;
+                }
+            }
+            int ti;
+            for (ti = 0; ti < NTYPE; ti++)
+                if (!strcmp(cur_type, g_type_names[ti])) break;
+            s->type_cnt[ti < NTYPE ? ti : NTYPE - 1]++;
+            if (cur_sev >= 4) s->sev_high++;
+            else if (cur_sev == 3) s->sev_mid++;
+            else s->sev_low++;
+            bump(s->rules, &s->nrules, 256, cur_rule);
+        } else if (strstr(line, "| IP: ")) {
+            char buf[600] = "";
+            char *p = strstr(line, "| IP: ");
+            sscanf(p + 6, "%63s", buf);
+            char *b = strchr(buf, '|'); if (b) *b = '\0';
+            if (buf[0]) bump(s->ips, &s->nips, 256, buf);
+            if ((p = strstr(line, "| Path: "))) {
+                sscanf(p + 8, "%511s", buf);
+                if ((b = strchr(buf, '|'))) *b = '\0';
+                if (buf[0]) bump(s->paths, &s->npaths, 256, buf);
+            }
+        }
+    }
+}
+
+/* 解析单个访问日志文件（当前文件或轮转归档），累计到 s */
+static void stats_parse_access_fp(stats_data_t *s, FILE *fp) {
+    char line[1024];
+    while (fgets(line, sizeof(line), fp)) {
+        int status = 0;
+        char m[16], u[512];
+        if (sscanf(line, "[%*[^]]] %*s %15s %511s %d", m, u, &status) == 3) {
+            s->req_total++;
+            if (status == 200) s->req_ok++;
+            else if (status == 403) s->req_forbidden++;
+            else s->req_other++;
+        }
+    }
+}
+
+/* 扫描日志目录，对 base（如 waf-attack.log）的当前文件与轮转归档
+ * （base.<时间戳>[.<序号>]）逐个调用解析函数。 */
+static void stats_scan_logs(stats_data_t *s, const char *dir, const char *base,
+                            int is_attack, const char *today_str, time_t now) {
+    size_t blen = strlen(base);
+    /* 当前文件 */
+    char cur[700];
+    snprintf(cur, sizeof(cur), "%s/%s", dir, base);
+    FILE *fp = fopen(cur, "r");
+    if (fp) {
+        if (is_attack) stats_parse_attack_fp(s, fp, today_str, now);
+        else stats_parse_access_fp(s, fp);
+        fclose(fp);
+    }
+    /* 轮转归档 */
+    DIR *d = opendir(dir);
+    if (!d) return;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (strncmp(e->d_name, base, blen) != 0) continue;
+        if (e->d_name[blen] != '.') continue;  /* 排除当前文件本身 */
+        char p[800];
+        snprintf(p, sizeof(p), "%s/%s", dir, e->d_name);
+        fp = fopen(p, "r");
+        if (!fp) continue;
+        if (is_attack) stats_parse_attack_fp(s, fp, today_str, now);
+        else stats_parse_access_fp(s, fp);
+        fclose(fp);
+    }
+    closedir(d);
+}
+
 static void collect_stats(stats_data_t *s) {
     memset(s, 0, sizeof(*s));
     time_t now = time(NULL);
@@ -806,81 +908,20 @@ static void collect_stats(stats_data_t *s) {
     char today_str[16];
     strftime(today_str, sizeof(today_str), "%Y-%m-%d", localtime(&now));
 
-    /* 攻击日志全量统计 */
-    FILE *fp = fopen(g_attack_log, "r");
-    if (fp) {
-        char line[4096];
-        char cur_type[64] = "UNKNOWN", cur_rule[80] = "-", cur_action[16] = "LOG", cur_ts[32] = "";
-        int cur_sev = 0;
-        time_t cur_epoch = 0;
-        while (fgets(line, sizeof(line), fp)) {
-            if (line[0] == '[' && strstr(line, " ATTACK |")) {
-                sscanf(line + 1, "%31[^]]", cur_ts);
-                cur_epoch = parse_log_ts(cur_ts);
-                char *p, *b;
-                if ((p = strstr(line, "Type: "))) {
-                    sscanf(p + 6, "%63s", cur_type);
-                    if ((b = strchr(cur_type, '|'))) *b = '\0';
-                }
-                if ((p = strstr(line, "Severity: "))) cur_sev = atoi(p + 10);
-                if ((p = strstr(line, "Rule: "))) {
-                    sscanf(p + 6, "%79s", cur_rule);
-                    if ((b = strchr(cur_rule, '|'))) *b = '\0';
-                }
-                if ((p = strstr(line, "Action: "))) sscanf(p + 8, "%15s", cur_action);
+    /* 攻击日志：当前文件 + 全部轮转归档（保留期内），轮转后累计统计不丢失 */
+    char logdir[600];
+    snprintf(logdir, sizeof(logdir), "%s/logs", waf_home());
+    stats_scan_logs(s, logdir, "waf-attack.log", 1, today_str, now);
 
-                s->atk_total++;
-                if (!strcmp(cur_action, "BLOCK")) s->atk_blocked++; else s->atk_logged++;
-                if (!strncmp(cur_ts, today_str, 10)) s->atk_today++;
-                if (cur_epoch > 0 && now - cur_epoch < 86400) {
-                    int bucket = (int)((now - cur_epoch) / 3600);
-                    if (bucket >= 0 && bucket < 24) {
-                        s->trend[23 - bucket]++;
-                        if (!strcmp(cur_action, "BLOCK")) s->trend_blk[23 - bucket]++;
-                    }
-                }
-                int ti;
-                for (ti = 0; ti < NTYPE; ti++)
-                    if (!strcmp(cur_type, g_type_names[ti])) break;
-                s->type_cnt[ti < NTYPE ? ti : NTYPE - 1]++;
-                if (cur_sev >= 4) s->sev_high++;
-                else if (cur_sev == 3) s->sev_mid++;
-                else s->sev_low++;
-                bump(s->rules, &s->nrules, 256, cur_rule);
-            } else if (strstr(line, "| IP: ")) {
-                char buf[600] = "";
-                char *p = strstr(line, "| IP: ");
-                sscanf(p + 6, "%63s", buf);
-                char *b = strchr(buf, '|'); if (b) *b = '\0';
-                if (buf[0]) bump(s->ips, &s->nips, 256, buf);
-                if ((p = strstr(line, "| Path: "))) {
-                    sscanf(p + 8, "%511s", buf);
-                    if ((b = strchr(buf, '|'))) *b = '\0';
-                    if (buf[0]) bump(s->paths, &s->npaths, 256, buf);
-                }
-            }
-        }
-        fclose(fp);
-    }
+    /* 访问日志：请求总量 + 状态分布（当前文件 + 全部轮转归档） */
+    stats_scan_logs(s, logdir, "waf-access.log", 0, today_str, now);
 
-    /* 访问日志：请求总量 + 状态分布（全量） */
+    /* 近 5 分钟 QPS：仅当前访问日志尾部 2MB（归档无近期数据） */
     char access_path[600];
     snprintf(access_path, sizeof(access_path), "%s/logs/waf-access.log", waf_home());
     FILE *af = fopen(access_path, "r");
     if (af) {
-        char line[1024];
-        while (fgets(line, sizeof(line), af)) {
-            int status = 0;
-            char m[16], u[512];
-            if (sscanf(line, "[%*[^]]] %*s %15s %511s %d", m, u, &status) == 3) {
-                s->req_total++;
-                if (status == 200) s->req_ok++;
-                else if (status == 403) s->req_forbidden++;
-                else s->req_other++;
-            }
-        }
         fclose(af);
-        /* 近 5 分钟 QPS：访问日志尾部 2MB */
         size_t tl = 0;
         char *tail = read_file_tail(access_path, 2 * 1024 * 1024, &tl);
         if (tail) {

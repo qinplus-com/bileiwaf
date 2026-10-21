@@ -1,5 +1,5 @@
 Name:          bileiwaf
-Version:       1.0.3
+Version:       1.0.4
 Release:       1%{?dist}
 Summary:       BileiWAF - 一体化 Web 应用防火墙（反向代理 + 规则引擎）
 License:       Apache-2.0
@@ -83,6 +83,9 @@ fi
 /usr/lib/systemd/system/bileiwaf.service
 
 %changelog
+* Thu Oct 22 2026 BileiWAF Team <dev@dbask.cn> - 1.0.4-1
+- 修复日志轮转后管理后台统计清零：统计纳入保留期内全部轮转归档
+
 * Wed Oct 21 2026 BileiWAF Team <dev@dbask.cn> - 1.0.3-1
 - 修复请求总数口径：反代与 403 拦截请求统一写访问日志
 
