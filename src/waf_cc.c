@@ -36,6 +36,85 @@ static char blacklist_ips[MAX_BLACKLIST_IPS][64];
 static int blacklist_count = 0;
 static pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/* 动态黑名单（自动拉黑）：CC 触发封禁时写入，到期自动移除，不落盘。
+ * 与 rules/blacklist.ip 静态条目共用 blacklist_mutex 与查询入口。 */
+#define MAX_AUTO_BANS 4096
+typedef struct { char ip[64]; time_t expire_at; } auto_ban_t;
+static auto_ban_t auto_bans[MAX_AUTO_BANS];
+static int auto_ban_count = 0;
+
+/* 调用方须持有 blacklist_mutex：清理已到期条目 */
+static void auto_ban_prune_locked(time_t now) {
+    int w = 0;
+    for (int i = 0; i < auto_ban_count; i++) {
+        if (auto_bans[i].expire_at > now) {
+            if (w != i) auto_bans[w] = auto_bans[i];
+            w++;
+        }
+    }
+    auto_ban_count = w;
+}
+
+/* 调用方须持有 blacklist_mutex */
+static int auto_ban_find_locked(const char *ip, time_t now) {
+    auto_ban_prune_locked(now);
+    for (int i = 0; i < auto_ban_count; i++)
+        if (!strcmp(auto_bans[i].ip, ip)) return 1;
+    return 0;
+}
+
+/* 加入动态黑名单；已存在则顺延到期时间 */
+static void auto_blacklist_add(const char *ip) {
+    if (!ip || !global_cc_config.auto_blacklist_enabled) return;
+    int secs = global_cc_config.auto_blacklist_seconds;
+    if (secs <= 0) return;
+
+    time_t now = time(NULL);
+    pthread_mutex_lock(&blacklist_mutex);
+    auto_ban_prune_locked(now);
+    for (int i = 0; i < auto_ban_count; i++) {
+        if (!strcmp(auto_bans[i].ip, ip)) {
+            auto_bans[i].expire_at = now + secs;
+            pthread_mutex_unlock(&blacklist_mutex);
+            return;
+        }
+    }
+    if (auto_ban_count < MAX_AUTO_BANS) {
+        strncpy(auto_bans[auto_ban_count].ip, ip, sizeof(auto_bans[0].ip) - 1);
+        auto_bans[auto_ban_count].ip[sizeof(auto_bans[0].ip) - 1] = '\0';
+        auto_bans[auto_ban_count].expire_at = now + secs;
+        auto_ban_count++;
+        pthread_mutex_unlock(&blacklist_mutex);
+        waf_log(LOG_LEVEL_WARN, "IP %s auto-blacklisted for %d seconds", ip, secs);
+        return;
+    }
+    pthread_mutex_unlock(&blacklist_mutex);
+    waf_log(LOG_LEVEL_WARN, "Auto-blacklist table full (%d), %s not added", MAX_AUTO_BANS, ip);
+}
+
+/* 动态黑名单当前条目数（管理接口展示用） */
+int cc_auto_blacklist_count(void) {
+    pthread_mutex_lock(&blacklist_mutex);
+    auto_ban_prune_locked(time(NULL));
+    int n = auto_ban_count;
+    pthread_mutex_unlock(&blacklist_mutex);
+    return n;
+}
+
+/* 从动态黑名单移除（手动解封时同步解除，静态 blacklist.ip 条目不受影响） */
+static void auto_blacklist_remove(const char *ip) {
+    if (!ip) return;
+    pthread_mutex_lock(&blacklist_mutex);
+    for (int i = 0; i < auto_ban_count; i++) {
+        if (!strcmp(auto_bans[i].ip, ip)) {
+            auto_bans[i] = auto_bans[auto_ban_count - 1];
+            auto_ban_count--;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&blacklist_mutex);
+}
+
 static uint32_t wl_prefix_mask(int prefix) {
     return prefix ? (0xFFFFFFFFu << (32 - prefix)) : 0u;
 }
@@ -125,6 +204,7 @@ static int load_blacklist(const char *filename) {
 int is_ip_blacklisted(const char *ip) {
     if (!ip) return 0;
 
+    time_t now = time(NULL);
     pthread_mutex_lock(&blacklist_mutex);
     for (int i = 0; i < blacklist_count; i++) {
         if (strcmp(blacklist_ips[i], ip) == 0) {
@@ -132,8 +212,9 @@ int is_ip_blacklisted(const char *ip) {
             return 1;
         }
     }
+    int hit = auto_ban_find_locked(ip, now);
     pthread_mutex_unlock(&blacklist_mutex);
-    return 0;
+    return hit;
 }
 
 int is_ip_whitelisted(const char *ip) {
@@ -331,50 +412,63 @@ int cc_block_duration(void) {
 int cc_block_ip(const char *ip, int duration) {
     if (!ip) return -1;
 
+    int rc = -1;
+    time_t now = time(NULL);
+
     pthread_mutex_lock(&cc_mutex);
 
     for (int i = 0; i < cc_counters_count; i++) {
         if (strcmp(cc_counters[i].ip, ip) == 0) {
             cc_counters[i].blocked = 1;
-            waf_log(LOG_LEVEL_WARN, "IP manually blocked: %s for %d seconds", ip, duration);
-            pthread_mutex_unlock(&cc_mutex);
-            return 0;
+            cc_counters[i].last_request = now;
+            rc = 0;
+            break;
         }
     }
 
-    if (cc_counters_count < MAX_CC_ENTRIES) {
+    if (rc != 0 && cc_counters_count < MAX_CC_ENTRIES) {
         strncpy(cc_counters[cc_counters_count].ip, ip, MAX_IP_LENGTH - 1);
         cc_counters[cc_counters_count].blocked = 1;
         cc_counters[cc_counters_count].request_count = 0;
-        cc_counters[cc_counters_count].first_request = time(NULL);
-        cc_counters[cc_counters_count].last_request = time(NULL);
+        cc_counters[cc_counters_count].first_request = now;
+        cc_counters[cc_counters_count].last_request = now;
         cc_counters_count++;
-        waf_log(LOG_LEVEL_WARN, "IP blocked: %s for %d seconds", ip, duration);
-        pthread_mutex_unlock(&cc_mutex);
-        return 0;
+        rc = 0;
     }
 
     pthread_mutex_unlock(&cc_mutex);
-    return -1;
+
+    if (rc == 0) {
+        /* CC 封禁同时写入动态黑名单：封禁解除后仍在黑名单 TTL 内继续拦截 */
+        waf_log(LOG_LEVEL_WARN, "IP blocked: %s for %d seconds", ip, duration);
+        auto_blacklist_add(ip);
+    }
+
+    return rc;
 }
 
 int cc_unblock_ip(const char *ip) {
     if (!ip) return -1;
 
+    int found = 0;
     pthread_mutex_lock(&cc_mutex);
 
     for (int i = 0; i < cc_counters_count; i++) {
         if (strcmp(cc_counters[i].ip, ip) == 0) {
             cc_counters[i].blocked = 0;
             cc_counters[i].request_count = 0;
-            waf_log(LOG_LEVEL_INFO, "IP unblocked: %s", ip);
-            pthread_mutex_unlock(&cc_mutex);
-            return 0;
+            found = 1;
+            break;
         }
     }
 
     pthread_mutex_unlock(&cc_mutex);
-    return -1;
+
+    /* 手动解封同时清除动态黑名单，避免封禁解除后仍被黑名单继续拦截 */
+    auto_blacklist_remove(ip);
+
+    if (found) waf_log(LOG_LEVEL_INFO, "IP unblocked: %s", ip);
+    return found ? 0 : -1;
 }
 
 int cc_get_blocked_count(void) {

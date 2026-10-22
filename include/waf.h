@@ -246,6 +246,8 @@ typedef struct {
     int keepalive_timeout;
     int max_body_size;
     int enable_cc_protection;
+    int auto_blacklist_enabled;   /* 自动拉黑：CC 封禁时同时写入动态黑名单 */
+    int auto_blacklist_seconds;   /* 自动拉黑解封时长（秒），到期自动移除 */
     int enable_api_protection;
     int enable_bot_detection;
     int auto_add_www;

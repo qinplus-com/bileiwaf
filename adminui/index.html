@@ -595,7 +595,7 @@ async function loadRules(){
     $("rl_rows").innerHTML=(j.data||[]).map(r=>`<tr>
       <td style="font-family:Consolas,monospace;font-size:12px">${esc(r.file)}</td>
       <td>${Number(r.entries).toLocaleString("en-US")} 条</td>
-      <td>${r.file.endsWith(".ip")?'<span class="tag blue">IP 白名单</span>':'<span class="tag cyan">检测规则</span>'}</td>
+      <td>${r.file.startsWith("blacklist")?'<span class="tag red">IP 黑名单</span>':(r.file.startsWith("whitelist")?'<span class="tag blue">IP 白名单</span>':'<span class="tag cyan">检测规则</span>')}</td>
     </tr>`).join("")||`<tr><td class="empty">未找到规则文件</td></tr>`;
   }catch(e){}
 }

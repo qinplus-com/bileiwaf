@@ -799,8 +799,11 @@ static long data_plane_uptime(void) {
     return (long)(time(NULL) - g_start_time);
 }
 
-/* 解析单个攻击日志文件（当前文件或轮转归档），累计到 s */
-static void stats_parse_attack_fp(stats_data_t *s, FILE *fp, const char *today_str, time_t now) {
+/* 解析单个攻击日志文件（当前文件或轮转归档），累计到 s。
+ * atk_total / atk_blocked / atk_logged 仅统计本月（month_str=YYYY-MM），
+ * 今日、24 小时趋势与 TOP 榜仍按各自口径统计。 */
+static void stats_parse_attack_fp(stats_data_t *s, FILE *fp, const char *month_str,
+                                  const char *today_str, time_t now) {
     char line[4096];
     char cur_type[64] = "UNKNOWN", cur_rule[80] = "-", cur_action[16] = "LOG", cur_ts[32] = "";
     int cur_sev = 0;
@@ -821,8 +824,11 @@ static void stats_parse_attack_fp(stats_data_t *s, FILE *fp, const char *today_s
             }
             if ((p = strstr(line, "Action: "))) sscanf(p + 8, "%15s", cur_action);
 
-            s->atk_total++;
-            if (!strcmp(cur_action, "BLOCK")) s->atk_blocked++; else s->atk_logged++;
+            /* 卡片口径：仅本月 */
+            if (!strncmp(cur_ts, month_str, 7)) {
+                s->atk_total++;
+                if (!strcmp(cur_action, "BLOCK")) s->atk_blocked++; else s->atk_logged++;
+            }
             if (!strncmp(cur_ts, today_str, 10)) s->atk_today++;
             if (cur_epoch > 0 && now - cur_epoch < 86400) {
                 int bucket = (int)((now - cur_epoch) / 3600);
@@ -854,13 +860,15 @@ static void stats_parse_attack_fp(stats_data_t *s, FILE *fp, const char *today_s
     }
 }
 
-/* 解析单个访问日志文件（当前文件或轮转归档），累计到 s */
-static void stats_parse_access_fp(stats_data_t *s, FILE *fp) {
+/* 解析单个访问日志文件（当前文件或轮转归档），req_total / req_ok /
+ * req_forbidden / req_other 仅统计本月。 */
+static void stats_parse_access_fp(stats_data_t *s, FILE *fp, const char *month_str) {
     char line[1024];
     while (fgets(line, sizeof(line), fp)) {
         int status = 0;
-        char m[16], u[512];
-        if (sscanf(line, "[%*[^]]] %*s %15s %511s %d", m, u, &status) == 3) {
+        char ts[32], m[16], u[512];
+        if (sscanf(line, "[%31[^]]] %*s %15s %511s %d", ts, m, u, &status) == 4) {
+            if (strncmp(ts, month_str, 7) != 0) continue;   /* 卡片口径：仅本月 */
             s->req_total++;
             if (status == 200) s->req_ok++;
             else if (status == 403) s->req_forbidden++;
@@ -872,15 +880,16 @@ static void stats_parse_access_fp(stats_data_t *s, FILE *fp) {
 /* 扫描日志目录，对 base（如 waf-attack.log）的当前文件与轮转归档
  * （base.<时间戳>[.<序号>]）逐个调用解析函数。 */
 static void stats_scan_logs(stats_data_t *s, const char *dir, const char *base,
-                            int is_attack, const char *today_str, time_t now) {
+                            int is_attack, const char *month_str,
+                            const char *today_str, time_t now) {
     size_t blen = strlen(base);
     /* 当前文件 */
     char cur[700];
     snprintf(cur, sizeof(cur), "%s/%s", dir, base);
     FILE *fp = fopen(cur, "r");
     if (fp) {
-        if (is_attack) stats_parse_attack_fp(s, fp, today_str, now);
-        else stats_parse_access_fp(s, fp);
+        if (is_attack) stats_parse_attack_fp(s, fp, month_str, today_str, now);
+        else stats_parse_access_fp(s, fp, month_str);
         fclose(fp);
     }
     /* 轮转归档 */
@@ -894,8 +903,8 @@ static void stats_scan_logs(stats_data_t *s, const char *dir, const char *base,
         snprintf(p, sizeof(p), "%s/%s", dir, e->d_name);
         fp = fopen(p, "r");
         if (!fp) continue;
-        if (is_attack) stats_parse_attack_fp(s, fp, today_str, now);
-        else stats_parse_access_fp(s, fp);
+        if (is_attack) stats_parse_attack_fp(s, fp, month_str, today_str, now);
+        else stats_parse_access_fp(s, fp, month_str);
         fclose(fp);
     }
     closedir(d);
@@ -905,16 +914,17 @@ static void collect_stats(stats_data_t *s) {
     memset(s, 0, sizeof(*s));
     time_t now = time(NULL);
     s->uptime_sec = data_plane_uptime();
-    char today_str[16];
+    char today_str[16], month_str[8];
     strftime(today_str, sizeof(today_str), "%Y-%m-%d", localtime(&now));
+    strftime(month_str, sizeof(month_str), "%Y-%m", localtime(&now));
 
     /* 攻击日志：当前文件 + 全部轮转归档（保留期内），轮转后累计统计不丢失 */
     char logdir[600];
     snprintf(logdir, sizeof(logdir), "%s/logs", waf_home());
-    stats_scan_logs(s, logdir, "waf-attack.log", 1, today_str, now);
+    stats_scan_logs(s, logdir, "waf-attack.log", 1, month_str, today_str, now);
 
     /* 访问日志：请求总量 + 状态分布（当前文件 + 全部轮转归档） */
-    stats_scan_logs(s, logdir, "waf-access.log", 0, today_str, now);
+    stats_scan_logs(s, logdir, "waf-access.log", 0, month_str, today_str, now);
 
     /* 近 5 分钟 QPS：仅当前访问日志尾部 2MB（归档无近期数据） */
     char access_path[600];

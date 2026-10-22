@@ -1276,7 +1276,9 @@ int waf_init(waf_config_t *config) {
         .max_requests = 100,
         .time_window = 60,
         .action = WAF_ACTION_BLOCK,
-        .block_duration = 300
+        .block_duration = 300,
+        .auto_blacklist_enabled = global_config.auto_blacklist_enabled,
+        .auto_blacklist_seconds = global_config.auto_blacklist_seconds
     };
     cc_init(&cc_config);
     captcha_init();

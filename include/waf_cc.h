@@ -18,6 +18,8 @@ typedef struct {
     waf_action_t action;
     int block_duration;
     int enable_captcha;
+    int auto_blacklist_enabled;   /* CC 封禁时是否同时加入动态黑名单 */
+    int auto_blacklist_seconds;   /* 动态黑名单解封时长（秒） */
 } cc_config_t;
 
 int cc_init(cc_config_t *config);

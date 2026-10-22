@@ -1278,6 +1278,12 @@ int load_waf_config(waf_config_t *config) {
                     config->ai_guard_max_white_fp = atoi(trimmed + 24);
                 } else if (strncmp(trimmed, "ai_white_list = ", 16) == 0) {
                     strncpy(config->ai_white_list, trimmed + 16, sizeof(config->ai_white_list) - 1);
+                } else if (strncmp(trimmed, "auto_blacklist_enabled = ", 25) == 0) {
+                    const char *v = waf_trim(trimmed + 25);
+                    config->auto_blacklist_enabled = (strcmp(v, "on") == 0 || strcmp(v, "1") == 0 ||
+                                                      strcmp(v, "true") == 0 || strcmp(v, "yes") == 0);
+                } else if (strncmp(trimmed, "auto_blacklist_seconds = ", 25) == 0) {
+                    config->auto_blacklist_seconds = atoi(waf_trim(trimmed + 25));
                 } else if (strncmp(trimmed, "ai_learned_rules = ", 19) == 0) {
                     strncpy(config->ai_learned_rules, trimmed + 19, sizeof(config->ai_learned_rules) - 1);
                 }
@@ -1767,6 +1773,8 @@ int cert_renew(void) {
         config.mode = WAF_MODE_BLOCKING;
         config.detection_mode = WAF_DEFAULT_DETECTION_MODE;
         config.enable_cc_protection = 1;
+        config.auto_blacklist_enabled = 1;
+        config.auto_blacklist_seconds = 600;
         config.enable_api_protection = 1;
         config.ssl_enabled = 0;
         config.max_body_size = MAX_BODY_SIZE;
@@ -2906,6 +2914,8 @@ int main(int argc, char *argv[]) {
     config.mode = WAF_MODE_BLOCKING;
     config.detection_mode = WAF_DEFAULT_DETECTION_MODE;
     config.enable_cc_protection = 1;
+    config.auto_blacklist_enabled = 1;
+    config.auto_blacklist_seconds = 600;
     config.enable_api_protection = 1;
     config.ssl_enabled = 0;
     config.max_body_size = MAX_BODY_SIZE;
