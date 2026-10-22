@@ -1,6 +1,6 @@
 # 壁垒WAF 安装手册
 
-**版本：v1.0.1　|　内蒙古勤加软件有限公司　|　2026 年 10 月**
+**版本：v1.0.5　|　内蒙古勤加软件有限公司　|　2026 年 10 月**
 
 ---
 
@@ -53,7 +53,7 @@ dnf install -y gcc make openssl-devel libcurl-devel json-c-devel libmaxminddb-de
 # 在已有源码目录执行，生成 dist/bileiwaf-<版本>.tar.gz
 make dist
 # 分发到目标服务器解压
-tar xzf bileiwaf-1.2.0.tar.gz && cd bileiwaf-1.2.0
+tar xzf bileiwaf-1.0.5.tar.gz && cd bileiwaf-1.0.5
 ```
 
 **方式二：代码仓库**
@@ -107,7 +107,7 @@ sudo make install
 ├── bin/          bileiwaf（数据平面）、bileiwaf-admin（管理平面）
 ├── config/       waf.conf、admin.conf、sites/（站点配置）、sites.conf
 ├── rules/        检测规则与黑白名单（sql_injection.rules 等 11 个文件）
-├── models/       AI 模型文件（ai_model.dat.*、ai_fusion.dat 等）
+├── models/       AI 模型文件（ai_cnn.dat、ai_ae.dat、ai_fusion.dat）
 ├── web/          产品官网 / 攻防演示 / 大屏 / 报告 静态资源
 ├── adminui/      管理后台前端（与 web/ 平级、独立目录）
 ├── certs/        TLS 证书（首次启动自动生成自签名证书）
@@ -121,7 +121,7 @@ sudo make install
 适用于拿到 `bileiwaf-<版本>.tar.gz` 二进制发行包的服务器：
 
 ```bash
-cd bileiwaf-1.2.0
+cd bileiwaf-1.0.5
 sudo ./packaging/install.sh              # 环境自检 + 生成自签名证书
 sudo ./packaging/install.sh --systemd    # 额外注册 systemd 开机自启（不自动启动）
 ```
@@ -195,6 +195,8 @@ sudo systemctl reload bileiwaf          # 向数据平面发送 SIGHUP：热加�
 | `ai_ensemble_threshold` | AI 集成决策阈值（0~1，越高越保守） | `0.5` |
 | `ai_shadow_mode` | 影子模式：AI 只打分写 `logs/ai-shadow.log` 不拦截 | `off` |
 | `ai_guard_enabled` | 护栏自主学习（AILEARN）：AI 高分未拦载荷聚类铸造新规则 | `off` |
+| `auto_blacklist_enabled` | IP 自动黑名单：CC 超阈值时同时写入动态黑名单（v1.0.5） | `1` |
+| `auto_blacklist_seconds` | 动态黑名单自动解封时长（秒），到期自动移除、只存内存 | `600` |
 
 ### 7.2 管理后台账号 config/admin.conf
 

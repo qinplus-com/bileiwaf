@@ -1,6 +1,6 @@
 # 壁垒WAF 使用手册
 
-**版本：v1.0.1　|　内蒙古勤加软件有限公司　|　2026 年 10 月**
+**版本：v1.0.5　|　内蒙古勤加软件有限公司　|　2026 年 10 月**
 
 ---
 
@@ -82,7 +82,7 @@
 
 ## 7 规则管理
 
-左侧菜单 → **规则文件**。内置 1,091 条检测规则，按攻击类型分文件管理：
+左侧菜单 → **规则文件**。内置 1,087 条检测规则，按攻击类型分文件管理：
 
 | 规则文件 | 条数 | 覆盖 |
 | --- | --- | --- |
@@ -92,16 +92,22 @@
 | `xxe.rules` | 120 | XML 外部实体注入 |
 | `xss.rules` | 41 | 跨站脚本 |
 | `path_traversal.rules` | 20 | 路径穿越 |
-| `scanner.rules` | 16 | 扫描器 / 探测指纹 |
+| `scanner.rules` | 18 | 扫描器 / 探测指纹 |
 | `file_upload.rules` | 7 | 恶意文件上传 |
 | `whitelist.ip` / `whitelist.url` | - | IP / URL 白名单（跳过检测） |
-| `blacklist.ip` | - | IP 黑名单（直接封禁） |
+| `blacklist.ip` | - | IP 黑名单（直接封禁；规则文件列表中显示红色「IP 黑名单」标签） |
 
 规则运维：
 
 - 白名单用于消除对已知正常业务的误报：将误报 URL 加入 `whitelist.url`、可信来源加入 `whitelist.ip`；
 - 规则与黑白名单支持**热加载**：修改后 `sudo systemctl reload bileiwaf`（或 `kill -HUP $(cat /opt/bileiwaf/logs/bileiwaf.pid)`），无需中断业务；
 - 开启 AILEARN（见第 9 节）后，AI 高分但规则未拦的载荷会自动聚类铸造新规则写入 `rules/ai_learned.rules`，铸造前经白名单全量评估防误报。
+
+**IP 自动黑名单（v1.0.5，动态拉黑）**：`blacklist.ip` 的静态条目之外，系统还提供动态拉黑能力——同一 IP 在 CC 统计窗口内请求次数超过 CC 阈值（默认 60 次/60 秒，可经 `WAF_CC_MAX_REQUESTS` 等环境变量调整）时，除 CC 封禁外，该 IP 会同时被写入内存中的动态黑名单，期间全部请求直接 403，到期自动解封。特性要点：
+
+- 动态条目**只存内存**，不修改 `blacklist.ip` 文件，重启后自动清空；
+- 解封时长由 `config/waf.conf` 控制：`auto_blacklist_enabled = 1`（默认开）、`auto_blacklist_seconds = 600`（默认 600 秒）；
+- 白名单 IP 优先豁免，不会被自动拉黑；管理后台手动解封时同步清除动态条目。
 
 ## 8 端口与检测模式配置
 
