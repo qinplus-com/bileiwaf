@@ -3,7 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>壁垒WAF - 专业Web应用防火墙 | 网站安全防护</title>
+<title>壁垒WAF - 专业Web应用防火墙 | SQL注入/XSS/CC攻击防护与在线攻防演示</title>
+<meta name="description" content="壁垒WAF（BILEI Web Application Firewall）是反向代理架构的企业级Web应用防火墙，提供SQL注入、XSS、命令注入、路径穿越、XXE/SSRF、恶意文件上传、扫描器识别与CC攻击限流防护，规则引擎+AI双引擎检测，毫秒级实时阻断，支持在线攻防演示。">
+<meta name="keywords" content="壁垒WAF,Web应用防火墙,WAF,SQL注入防护,XSS防护,CC攻击防护,命令注入防护,路径穿越防护,XXE防护,SSRF防护,Webshell检测,扫描器识别,网站安全,应用安全,反向代理,在线攻防演示,内蒙古勤加软件">
+<meta name="author" content="内蒙古勤加软件有限公司">
+<meta name="robots" content="index, follow">
+<meta name="language" content="zh-CN">
+<link rel="canonical" href="https://demo.bileiwaf.com/">
+<link rel="icon" href="/images/bileiwaf_logo.png" type="image/png">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="壁垒WAF">
+<meta property="og:title" content="壁垒WAF - 专业Web应用防火墙">
+<meta property="og:description" content="反向代理架构，规则引擎+AI双引擎检测，覆盖SQL注入、XSS、命令注入、扫描器识别与CC攻击限流，毫秒级实时阻断。">
+<meta property="og:url" content="https://demo.bileiwaf.com/">
+<meta property="og:image" content="https://demo.bileiwaf.com/images/bileiwaf_logo.png">
+<meta property="og:locale" content="zh_CN">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="壁垒WAF - 专业Web应用防火墙">
+<meta name="twitter:description" content="覆盖SQL注入、XSS、命令注入、扫描器识别与CC攻击限流的Web应用防火墙，支持在线攻防演示。">
+<meta name="twitter:image" content="https://demo.bileiwaf.com/images/bileiwaf_logo.png">
+
+<!-- 结构化数据 -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "壁垒WAF Web应用防火墙",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "Linux",
+  "description": "反向代理架构的企业级Web应用防火墙，提供SQL注入、XSS、命令注入、路径穿越、XXE/SSRF、恶意文件上传、扫描器识别与CC攻击限流防护，规则引擎+AI双引擎检测。",
+  "url": "https://demo.bileiwaf.com/",
+  "image": "https://demo.bileiwaf.com/images/bileiwaf_logo.png",
+  "publisher": {
+    "@type": "Organization",
+    "name": "内蒙古勤加软件有限公司",
+    "url": "https://www.qinplus.com/"
+  },
+  "featureList": "SQL注入防护,XSS跨站防护,命令注入防护,路径穿越防护,XXE/SSRF防护,恶意文件上传防护,扫描器识别,CC攻击限流,IP黑白名单,HTTPS终结",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "CNY",
+    "description": "提供在线攻防演示与测试报告"
+  }
+}
+</script>
 <style>
 :root{
   --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.85);
@@ -11,9 +59,10 @@
   --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c; --orange:#ffb454; --purple:#9d7bff;
 }
 *{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
 body{
   font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Helvetica Neue",sans-serif;
-  color:var(--ink);background:var(--bg);line-height:1.7;
+  color:var(--ink);background:var(--bg);line-height:1.7;overflow-x:hidden;
   background-image:
     radial-gradient(1200px 500px at 50% -10%, rgba(77,163,255,.10), transparent 60%),
     radial-gradient(900px 420px at 100% 110%, rgba(53,224,200,.06), transparent 60%),
@@ -21,12 +70,12 @@ body{
   background-attachment:fixed;
 }
 a{text-decoration:none;color:inherit}
-.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px;width:100%}
 /* 顶栏 */
 .nav{position:sticky;top:0;z-index:100;background:rgba(11,18,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .nav-in{display:flex;align-items:center;height:72px}
-.logo{display:flex;align-items:center;gap:12px;font-size:20px;font-weight:700}
-.logo img{width:200px;height:200px;object-fit:contain}
+.logo{display:flex;align-items:center;gap:12px;font-size:20px;font-weight:700;flex:none}
+.logo img{height:38px;width:auto;max-width:220px;object-fit:contain;display:block}
 .logo small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:2px;margin-left:2px}
 .nav-links{margin-left:auto;display:flex;gap:6px;align-items:center}
 .nav-links a{padding:7px 14px;border-radius:8px;font-size:14px;color:var(--muted);transition:.2s}
@@ -39,10 +88,10 @@ a{text-decoration:none;color:inherit}
   background:radial-gradient(circle,rgba(77,163,255,.14),transparent 65%)}
 .hero-tag{display:inline-block;padding:5px 16px;border:1px solid rgba(53,224,200,.4);background:rgba(53,224,200,.08);
   color:var(--cyan);border-radius:999px;font-size:13px;letter-spacing:2px;margin-bottom:22px}
-.hero h1{font-size:46px;line-height:1.28;letter-spacing:1px;
+.hero h1{font-size:clamp(26px,4.4vw,46px);line-height:1.28;letter-spacing:1px;
   background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
 .hero h1 em{font-style:normal;color:var(--cyan);-webkit-text-fill-color:var(--cyan)}
-.hero p.sub{font-size:17px;color:var(--muted);margin:20px 0 36px;max-width:660px}
+.hero p.sub{font-size:clamp(14px,1.6vw,17px);color:var(--muted);margin:20px 0 36px;max-width:660px}
 .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 30px;border-radius:10px;font-size:15px;font-weight:600;transition:.2s;border:1px solid transparent;cursor:pointer}
 .btn-p{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff;box-shadow:0 8px 22px rgba(37,99,235,.35)}
 .btn-p:hover{filter:brightness(1.15);transform:translateY(-1px)}
@@ -65,7 +114,7 @@ section{padding:72px 0}
 .fcard h3{font-size:16px;margin-bottom:8px}
 .fcard p{font-size:13px;color:var(--muted)}
 /* 简介 */
-.intro{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:44px;display:flex;gap:40px;align-items:center}
+.intro{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:clamp(22px,4vw,44px);display:flex;gap:clamp(20px,3vw,40px);align-items:center}
 .intro-txt{flex:1.2}
 .intro-txt h3{font-size:24px;margin-bottom:14px}
 .intro-txt p{color:var(--muted);font-size:14.5px}
@@ -96,7 +145,7 @@ section{padding:72px 0}
 .scard p{font-size:13px;color:var(--muted)}
 /* CTA */
 .cta-band{background:linear-gradient(120deg,rgba(8,145,178,.35),rgba(37,99,235,.3));border:1px solid rgba(53,224,200,.35);
-  border-radius:20px;padding:52px;text-align:center}
+  border-radius:20px;padding:clamp(26px,4.5vw,52px);text-align:center}
 .cta-band h2{font-size:28px;margin-bottom:10px}
 .cta-band p{color:var(--muted);margin-bottom:26px}
 .cta-band .btn{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff}
@@ -105,7 +154,36 @@ section{padding:72px 0}
 footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:13px}
 .foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
 .foot b{color:var(--ink)}
-@media(max-width:900px){.feat4,.mgrid{grid-template-columns:repeat(2,1fr)}.adv,.scene{grid-template-columns:1fr}.intro{flex-direction:column}.hero h1{font-size:34px}.hero-stats{flex-wrap:wrap;gap:22px}}
+@media(max-width:900px){
+  .feat4,.mgrid{grid-template-columns:repeat(2,1fr)}
+  .adv,.scene{grid-template-columns:1fr}
+  .intro{flex-direction:column;align-items:stretch}
+  .hero{padding:64px 0 52px}
+  .hero-stats{flex-wrap:wrap;gap:22px}
+  section{padding:52px 0}
+}
+@media(max-width:760px){
+  .nav-in{height:auto;flex-wrap:wrap;padding:10px 0;gap:2px}
+  .nav-links{margin-left:0;width:100%;overflow-x:auto;justify-content:flex-start;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav-links::-webkit-scrollbar{display:none}
+  .nav-links a{white-space:nowrap;padding:6px 10px;font-size:13px}
+  .wrap{padding:0 16px}
+}
+@media(max-width:560px){
+  .feat4,.mgrid{grid-template-columns:1fr}
+  .sec-head h2{font-size:26px}
+  .hero-stats{gap:16px 26px;margin-top:36px}
+  .hstat b{font-size:22px}
+  .btn{padding:11px 22px;font-size:14px}
+  .btn-o{margin-left:0;margin-top:10px}
+  .btn + .btn-o::before{content:""}
+  .cta-band .btn-o{margin-left:8px;margin-top:0}
+  .foot{flex-direction:column;gap:8px}
+}
+@media(max-width:380px){
+  .hero h1{letter-spacing:0}
+  .logo img{height:32px}
+}
 </style>
 </head>
 <body>

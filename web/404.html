@@ -2,20 +2,24 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>404 - 页面不存在</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 - 页面不存在 | 壁垒WAF</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="您访问的页面不存在或已被移除，请返回壁垒WAF首页。">
+<link rel="icon" href="/images/bileiwaf_logo.png" type="image/png">
 <style>
 :root{--bg:#0b1220;--cyan:#35e0c8;--blue:#4da3ff;--muted:#7d8fa8;--ink:#d8e4f5}
 *{margin:0;padding:0;box-sizing:border-box}
-body{height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink);
-  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;overflow:hidden;position:relative}
+body{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink);
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;overflow-x:hidden;position:relative;padding:20px}
 body::before{content:"";position:fixed;inset:0;opacity:.5;pointer-events:none;
   background-image:linear-gradient(rgba(77,163,255,.055) 1px,transparent 1px),
     linear-gradient(90deg,rgba(77,163,255,.055) 1px,transparent 1px);background-size:52px 52px;
   -webkit-mask-image:radial-gradient(900px 640px at 50% 45%,#000,transparent 78%);
   mask-image:radial-gradient(900px 640px at 50% 45%,#000,transparent 78%)}
-.card{position:relative;z-index:1;text-align:center;padding:64px 88px;border-radius:18px;
-  background:rgba(15,24,44,.72);border:1px solid #1c2f4d;box-shadow:0 30px 80px rgba(0,0,0,.55)}
-.num{font-size:120px;font-weight:800;letter-spacing:8px;line-height:1;
+.card{position:relative;z-index:1;text-align:center;padding:clamp(28px,6vw,64px) clamp(20px,8vw,88px);border-radius:18px;
+  max-width:100%;background:rgba(15,24,44,.72);border:1px solid #1c2f4d;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.num{font-size:clamp(64px,18vw,120px);font-weight:800;letter-spacing:clamp(2px,1vw,8px);line-height:1;
   background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent;
   text-shadow:0 0 40px rgba(77,163,255,.35)}
 .tip{margin:22px 0 8px;font-size:17px;color:var(--ink);letter-spacing:1px}
@@ -28,6 +32,14 @@ body::before{content:"";position:fixed;inset:0;opacity:.5;pointer-events:none;
 .brand small{color:var(--muted);font-size:11px;letter-spacing:2px;display:block;margin-top:2px}
 a.home{display:inline-block;margin-top:26px;color:var(--blue);font-size:14px;text-decoration:none;letter-spacing:1px}
 a.home:hover{text-decoration:underline}
+@media(max-width:520px){
+  .tip{font-size:15px}
+  .sub{font-size:11.5px}
+  .badge{font-size:11.5px;padding:8px 14px;letter-spacing:0}
+  .brand{gap:8px}
+  .brand b{font-size:15px}
+  .brand small{font-size:10px;letter-spacing:1px}
+}
 </style>
 </head>
 <body>

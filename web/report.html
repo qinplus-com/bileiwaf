@@ -3,7 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>壁垒WAF v1.0 · 检测能力验证报告</title>
+<title>壁垒WAF v1.0 检测能力验证报告 - blazehttp 准确率 99.90%</title>
+<meta name="description" content="壁垒WAF v1.0 检测能力验证报告：基于 blazehttp 测评集，综合准确率 99.90%，覆盖SQL注入、XSS、命令注入、路径穿越、XXE、SSRF等Web攻击类型的检测结果与性能测试数据。">
+<meta name="keywords" content="壁垒WAF测试报告,WAF检测能力,blazehttp,WAF准确率,SQL注入检测,XSS检测,Web应用防火墙测评,性能测试">
+<meta name="robots" content="index, follow">
+<meta name="language" content="zh-CN">
+<link rel="canonical" href="https://demo.bileiwaf.com/report.html">
+<link rel="icon" href="/images/bileiwaf_logo.png" type="image/png">
+
+<!-- Open Graph -->
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="壁垒WAF">
+<meta property="og:title" content="壁垒WAF v1.0 检测能力验证报告">
+<meta property="og:description" content="blazehttp 测评综合准确率 99.90%，覆盖主流Web攻击类型的检测结果与性能数据。">
+<meta property="og:url" content="https://demo.bileiwaf.com/report.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="壁垒WAF v1.0 检测能力验证报告">
+<meta name="twitter:description" content="blazehttp 测评综合准确率 99.90%，覆盖主流Web攻击类型的检测结果与性能数据。">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "壁垒WAF v1.0 检测能力验证报告",
+  "description": "基于 blazehttp 测评集，综合准确率 99.90%，覆盖SQL注入、XSS、命令注入、路径穿越、XXE、SSRF等Web攻击类型的检测结果与性能测试数据。",
+  "author": {"@type": "Organization", "name": "内蒙古勤加软件有限公司"},
+  "publisher": {"@type": "Organization", "name": "内蒙古勤加软件有限公司"},
+  "mainEntityOfPage": "https://demo.bileiwaf.com/report.html"
+}
+</script>
 <style>
 :root{
   --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.85);
@@ -11,20 +40,21 @@
   --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c; --orange:#ffb454; --purple:#9d7bff;
 }
 *{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
 body{
-  background:var(--bg); color:var(--ink); line-height:1.7;
+  background:var(--bg); color:var(--ink); line-height:1.7;overflow-x:hidden;
   font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
   background-image:
     radial-gradient(1200px 500px at 50% -10%, rgba(77,163,255,.10), transparent 60%),
     radial-gradient(900px 420px at 100% 110%, rgba(53,224,200,.06), transparent 60%);
   background-attachment:fixed;
 }
-.wrap{max-width:1160px;margin:0 auto;padding:0 24px 60px}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px 60px;width:100%}
 /* 顶栏 */
 .nav{position:sticky;top:0;z-index:100;background:rgba(11,18,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.nav-in{display:flex;align-items:center;height:64px;max-width:1160px;margin:0 auto;padding:0 24px}
-.logo{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;color:var(--ink);text-decoration:none}
-.logo img{width:200px;height:200px;object-fit:contain}
+.nav-in{display:flex;align-items:center;height:64px;max-width:1160px;margin:0 auto;padding:0 24px;width:100%}
+.logo{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;color:var(--ink);text-decoration:none;flex:none}
+.logo img{height:34px;width:auto;max-width:200px;object-fit:contain;display:block}
 .logo small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:2px}
 .nav-links{margin-left:auto;display:flex;gap:6px;align-items:center}
 .nav-links a{padding:7px 14px;border-radius:8px;font-size:14px;color:var(--muted);text-decoration:none;transition:.2s}
@@ -76,7 +106,31 @@ code{font-family:Consolas,"JetBrains Mono",monospace;background:rgba(13,25,46,.8
 .conclusion ul{margin-left:20px;color:var(--ink);font-size:14.5px}
 .conclusion li{margin:6px 0}
 footer{margin-top:50px;border-top:1px solid var(--line);padding-top:18px;text-align:center;color:var(--muted);font-size:12.5px;letter-spacing:1px}
-@media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}.rp h1{font-size:28px}}
+@media(max-width:900px){
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .cols{grid-template-columns:1fr}
+  .rp h1{font-size:28px}
+  .chart{height:280px}
+  .chart-sm{height:260px}
+}
+@media(max-width:760px){
+  .nav-in{height:auto;flex-wrap:wrap;padding:10px 16px;gap:2px}
+  .nav-links{margin-left:0;width:100%;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+  .nav-links::-webkit-scrollbar{display:none}
+  .nav-links a{white-space:nowrap;padding:6px 10px;font-size:13px}
+  .wrap{padding:0 16px 44px}
+  header.rp{padding:40px 0 24px}
+  .panel{padding:14px}
+  table{font-size:12.5px}
+  th,td{padding:8px 6px}
+}
+@media(max-width:560px){
+  .cards{grid-template-columns:1fr}
+  .rp h1{font-size:24px;letter-spacing:1px}
+  .sec-h{font-size:17px;flex-wrap:wrap}
+  .conclusion{padding:20px}
+  .conclusion ul{margin-left:18px;font-size:13.5px}
+}
 </style>
 </head>
 <body>

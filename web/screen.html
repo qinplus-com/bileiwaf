@@ -3,7 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>壁垒WAF · 安全防护监控大屏（演示）</title>
+<title>壁垒WAF 安全防护监控大屏 - 攻击态势实时可视化演示</title>
+<meta name="description" content="壁垒WAF安全防护监控大屏演示：实时展示今日攻击、拦截量、实时QPS、攻击类型分布、威胁等级、攻击源TOP5、全球攻击态势、24小时攻击趋势与命中规则。">
+<meta name="keywords" content="WAF监控大屏,安全态势感知,攻击态势可视化,实时攻击监控,Web安全大屏,壁垒WAF,安全运营,攻击趋势">
+<meta name="robots" content="index, follow">
+<meta name="language" content="zh-CN">
+<link rel="canonical" href="https://demo.bileiwaf.com/screen.html">
+<link rel="icon" href="/images/bileiwaf_logo.png" type="image/png">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="壁垒WAF">
+<meta property="og:title" content="壁垒WAF 安全防护监控大屏">
+<meta property="og:description" content="实时攻击态势、攻击类型分布、全球攻击地图与24小时攻击趋势可视化演示。">
+<meta property="og:url" content="https://demo.bileiwaf.com/screen.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="壁垒WAF 安全防护监控大屏">
+<meta name="twitter:description" content="实时攻击态势、攻击类型分布、全球攻击地图与24小时攻击趋势可视化演示。">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "壁垒WAF首页", "item": "https://demo.bileiwaf.com/"},
+    {"@type": "ListItem", "position": 2, "name": "安全防护监控大屏", "item": "https://demo.bileiwaf.com/screen.html"}
+  ]
+}
+</script>
 <style>
 :root{
   --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.85);
@@ -12,6 +40,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
+html{-webkit-text-size-adjust:100%}
 body{
   background:var(--bg); color:var(--ink); overflow:hidden;
   font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
@@ -29,13 +58,13 @@ header{height:72px;display:flex;align-items:center;position:relative;flex:none}
 .h-line.r::after{background:linear-gradient(270deg,transparent,var(--line))}
 .h-title{padding:0 34px;text-align:center;position:relative}
 .h-title h1{
-  font-size:26px;letter-spacing:6px;font-weight:700;white-space:nowrap;
+  font-size:clamp(18px,2.2vw,26px);letter-spacing:clamp(2px,.45vw,6px);font-weight:700;white-space:nowrap;
   background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent;
   text-shadow:0 0 24px rgba(77,163,255,.35);
 }
 .h-sub{font-size:11px;letter-spacing:5px;color:var(--muted);margin-top:2px;text-transform:uppercase}
 .logo{display:flex;align-items:center;gap:10px;position:absolute;left:6px;top:50%;transform:translateY(-50%)}
-.logo img{width:200px;height:200px;object-fit:contain}
+.logo img{height:34px;width:auto;max-width:190px;object-fit:contain;display:block}
 .h-right{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:14px}
 .badge{display:flex;align-items:center;gap:7px;padding:5px 13px;border:1px solid rgba(53,224,200,.4);
   border-radius:20px;color:var(--cyan);font-size:12px;letter-spacing:2px;background:rgba(53,224,200,.08)}
@@ -111,6 +140,68 @@ main{flex:1;display:grid;grid-template-columns:24% 1fr 24.5%;grid-template-rows:
 
 footer{flex:none;display:flex;justify-content:space-between;padding:8px 6px 0;font-size:11px;color:var(--muted);letter-spacing:1px}
 footer b{color:#a8c6ee;font-weight:600}
+
+/* ---------- 分辨率适配 ---------- */
+/* 小尺寸大屏（1366×768 等）：压缩纵向空间 */
+@media(max-height:820px) and (min-width:901px){
+  header{height:56px}
+  .cards{height:78px;margin:2px 0 8px}
+  .card .v{font-size:24px}
+  .card .ico{font-size:20px;margin-right:10px}
+  main{grid-template-rows:1fr 190px}
+  .panel-h{height:32px;font-size:13px}
+  #trendChart,#pathChart,#ruleChart{height:calc(100% - 32px)}
+  .h-title h1{font-size:20px;letter-spacing:3px}
+  .h-sub{letter-spacing:3px}
+  .logo img{height:28px}
+  footer{padding-top:4px}
+}
+@media(max-width:1280px){
+  .logo{display:none}
+  .h-title{padding:0 20px}
+  .h-right{gap:8px}
+  #clock{font-size:16px}
+  .badge,.demo-tag{letter-spacing:1px;font-size:11px;padding:4px 9px}
+}
+/* 平板 / 手机：取消固定大屏，改为纵向可滚动布局 */
+@media(max-width:900px){
+  body{overflow-y:auto;overflow-x:hidden}
+  #app{height:auto;min-height:100vh;padding:0 10px 10px}
+  header{height:auto;flex-wrap:wrap;justify-content:center;gap:8px;padding:10px 0}
+  .h-line{display:none}
+  .logo{position:static;transform:none;display:flex}
+  .h-title{padding:0;order:3;width:100%}
+  .h-right{position:static;transform:none;order:2;flex-wrap:wrap;justify-content:center;gap:8px;width:100%}
+  .h-title h1{font-size:19px;letter-spacing:2px}
+  .h-sub{letter-spacing:2px}
+  .cards{grid-template-columns:repeat(2,1fr);height:auto;margin:6px 0 10px}
+  .card{height:76px;padding:0 14px}
+  .card .v{font-size:24px}
+  main{grid-template-columns:1fr;grid-template-rows:none;gap:10px}
+  .map-wrap{grid-column:auto!important;grid-row:auto!important;height:300px}
+  .col{display:grid;grid-template-columns:1fr;gap:10px}
+  .col .panel{height:240px;flex:none!important}
+  main > .panel[style*="grid-column"]{grid-column:auto!important;grid-row:auto!important;height:320px}
+  .trend-wrap{grid-column:auto;grid-row:auto;grid-template-columns:1fr;height:auto}
+  .trend-wrap .panel{height:240px}
+  #trendChart,#pathChart,#ruleChart{height:calc(100% - 36px)}
+  footer{flex-direction:column;gap:4px;text-align:center}
+}
+@media(max-width:520px){
+  .cards{grid-template-columns:1fr}
+  .h-title h1{font-size:17px;letter-spacing:1px}
+  .h-right{font-size:11px}
+  #clock{font-size:15px}
+  #clock small{font-size:10px}
+  .logo img{height:26px}
+  .demo-tag{display:none}
+  .stream li,.stream-head{grid-template-columns:52px 62px 1fr 70px;font-size:11px;gap:5px}
+  .stream li .path{display:none}
+  .stream-head span:last-child{display:none}
+  .map-wrap{height:260px}
+  .col .panel,main > .panel[style*="grid-column"]{height:220px}
+  .trend-wrap .panel{height:220px}
+}
 </style>
 </head>
 <body>
