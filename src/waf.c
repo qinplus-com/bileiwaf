@@ -312,7 +312,7 @@ int create_server_socket(int port) {
 const char *get_content_type(const char *filename) {
     const char *ext = strrchr(filename, '.');
     if (!ext) return "text/html";
-    
+
     if (strcmp(ext, ".css") == 0) return "text/css";
     if (strcmp(ext, ".js") == 0) return "application/javascript";
     if (strcmp(ext, ".html") == 0) return "text/html";
@@ -322,9 +322,46 @@ const char *get_content_type(const char *filename) {
     if (strcmp(ext, ".gif") == 0) return "image/gif";
     if (strcmp(ext, ".svg") == 0) return "image/svg+xml";
     if (strcmp(ext, ".ico") == 0) return "image/x-icon";
+    if (strcmp(ext, ".webp") == 0) return "image/webp";
     if (strcmp(ext, ".txt") == 0) return "text/plain";
-    
+    if (strcmp(ext, ".xml") == 0) return "application/xml";
+    if (strcmp(ext, ".md") == 0) return "text/markdown";
+    if (strcmp(ext, ".mp4") == 0) return "video/mp4";
+    if (strcmp(ext, ".webm") == 0) return "video/webm";
+    if (strcmp(ext, ".m3u8") == 0) return "application/vnd.apple.mpegurl";
+    if (strcmp(ext, ".ts") == 0) return "video/mp2t";
+
     return "application/octet-stream";
+}
+
+/* 静态资源缓存策略：图片/视频内容稳定，给长缓存；HLS 清单可能更新，短缓存；
+ * 其余（HTML/JS/CSS/JSON）返回 NULL，不加 Cache-Control，保持浏览器默认启发式缓存。 */
+static const char *cache_policy_for(const char *path) {
+    const char *e = strrchr(path, '.');
+    if (!e) return NULL;
+    if (!strcmp(e, ".png") || !strcmp(e, ".jpg") || !strcmp(e, ".jpeg") ||
+        !strcmp(e, ".gif") || !strcmp(e, ".svg") || !strcmp(e, ".ico") ||
+        !strcmp(e, ".webp"))
+        return "public, max-age=604800";                  /* 图片：7 天 */
+    if (!strcmp(e, ".mp4") || !strcmp(e, ".webm") || !strcmp(e, ".ts"))
+        return "public, max-age=2592000, immutable";      /* 视频/切片：30 天 */
+    if (!strcmp(e, ".m3u8"))
+        return "public, max-age=60";                      /* HLS 清单：60 秒 */
+    return NULL;
+}
+
+/* HTTP 日期（If-Modified-Since / Last-Modified）解析与格式化 */
+static time_t http_parse_date(const char *s) {
+    struct tm tmv;
+    memset(&tmv, 0, sizeof(tmv));
+    if (!strptime(s, "%a, %d %b %Y %H:%M:%S GMT", &tmv)) return 0;
+    return timegm(&tmv);
+}
+
+static void http_format_date(time_t t, char *out, size_t cap) {
+    struct tm tmv;
+    gmtime_r(&t, &tmv);
+    strftime(out, cap, "%a, %d %b %Y %H:%M:%S GMT", &tmv);
 }
 
 /* 404 响应体：直接内嵌 WAF 产品页（web/index.html），并在 </body> 前注入弹窗提示。
@@ -514,7 +551,8 @@ int serve_static_file(int client_fd, http_request_t *req, waf_site_config_t *sit
      * 演示页，确保 404 页上「攻防演示 / 大屏演示 / 测试报告」链接可用。 */
     if (!file) {
         const char *show = NULL;
-        if (!strcmp(path, "/demo") || !strcmp(path, "/demo/"))                  show = "web/demo.html";
+        if (!strcmp(path, "/demo/"))                                            show = "web/demo/index.html";
+        else if (!strcmp(path, "/demo") || !strcmp(path, "/demo.html"))         show = "web/demo.html";
         else if (!strcmp(path, "/screen") || !strcmp(path, "/screen.html"))     show = "web/screen.html";
         else if (!strcmp(path, "/report") || !strcmp(path, "/report.html"))     show = "web/report.html";
         if (show) {
@@ -523,11 +561,10 @@ int serve_static_file(int client_fd, http_request_t *req, waf_site_config_t *sit
         }
     }
     if (!file && (!strncmp(path, "/images/", 8) || !strncmp(path, "/assets/", 8) ||
-                  !strncmp(path, "/docs/", 6) || !strcmp(path, "/demo-login.html") ||
-                  !strcmp(path, "/demo-admin.html"))) {
+                  !strncmp(path, "/docs/", 6) || !strncmp(path, "/demo/", 6))) {
         /* 站点 docroot 未命中共享静态资源（如 404 演示页引用的 logo）：
          * 回退到 WAF_HOME/web 下查找，避免 404 页出现裂图。
-         * 文档页与只读演示后台同样走共享目录，便于多站点复用。 */
+         * 文档页与只读演示目录同样走共享目录，便于多站点复用。 */
         snprintf(file_path, sizeof(file_path), "web%s", path);
         file = fopen(file_path, "rb");
     }
@@ -569,16 +606,70 @@ int serve_static_file(int client_fd, http_request_t *req, waf_site_config_t *sit
     fseek(file, 0, SEEK_END);
     long file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
-    
+
     const char *content_type = get_content_type(file_path);
-    char header_buf[512];
+
+    /* 缓存优化：图片/视频长缓存 + Last-Modified 条件请求（304） */
+    const char *cache_policy = cache_policy_for(file_path);
+    struct stat fst;
+    time_t mtime = (fstat(fileno(file), &fst) == 0) ? fst.st_mtime : 0;
+    char lastmod[64] = "";
+    if (mtime > 0) http_format_date(mtime, lastmod, sizeof(lastmod));
+
+    if (mtime > 0) {
+        const char *ims = http_get_header(req->headers, "If-Modified-Since");
+        if (ims) {
+            time_t ims_t = http_parse_date(ims);
+            free((void *)ims);
+            if (ims_t > 0 && mtime <= ims_t) {
+                fclose(file);
+                char cc_line[96] = "";
+                if (cache_policy)
+                    snprintf(cc_line, sizeof(cc_line), "Cache-Control: %s\r\n", cache_policy);
+                char h304[640];
+                int l304 = snprintf(h304, sizeof(h304),
+                    "HTTP/1.1 304 Not Modified\r\n"
+                    "Last-Modified: %s\r\n"
+                    "%s"
+                    "Connection: %s\r\n"
+                    "\r\n",
+                    lastmod, cc_line,
+                    keep_alive ? "keep-alive" : "close");
+                if (is_https && ssl) {
+                    waf_ssl_send(ssl, h304, l304);
+                } else {
+                    write(client_fd, h304, l304);
+                }
+                access_log_entry_t access_log = {
+                    .timestamp = time(NULL),
+                    .status_code = 304,
+                    .bytes_received = 0,
+                    .bytes_sent = 0,
+                    .response_time = 0
+                };
+                strncpy(access_log.ip, req->client_ip, MAX_IP_LENGTH - 1);
+                strncpy(access_log.method, req->method, sizeof(access_log.method) - 1);
+                strncpy(access_log.url, req->url, MAX_URL_LENGTH - 1);
+                log_write_access(&access_log);
+                return 0;
+            }
+        }
+    }
+
+    char header_buf[768];
+    char cc_line[96] = "", lm_line[96] = "";
+    if (cache_policy)
+        snprintf(cc_line, sizeof(cc_line), "Cache-Control: %s\r\n", cache_policy);
+    if (lastmod[0])
+        snprintf(lm_line, sizeof(lm_line), "Last-Modified: %s\r\n", lastmod);
     int header_len = snprintf(header_buf, sizeof(header_buf),
         "HTTP/1.1 200 OK\r\n"
         "Content-Length: %ld\r\n"
         "Content-Type: %s\r\n"
+        "%s%s"
         "Connection: %s\r\n"
         "%s"
-        "\r\n", file_size, content_type,
+        "\r\n", file_size, content_type, lm_line, cc_line,
         keep_alive ? "keep-alive" : "close",
         keep_alive ? "Keep-Alive: timeout=75, max=1000\r\n" : "");
     
@@ -964,6 +1055,7 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
             attack_detected = 1;
             match.type = ATTACK_UNKNOWN;
             match.severity = 10;
+            strcpy(match.rule_id, "IP-BLACKLIST");
             strcpy(match.description, "IP Blacklisted");
         }
 
@@ -1000,12 +1092,14 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
                     attack_detected = 1;
                     match.type = ATTACK_CC;
                     match.severity = 8;
+                    strcpy(match.rule_id, "CC-LIMIT");
                     strcpy(match.description, "Rate Limit Exceeded");
                 }
             } else if (ccr == 1) {
                 attack_detected = 1;
                 match.type = ATTACK_CC;
                 match.severity = 8;
+                strcpy(match.rule_id, "CC-LIMIT");
                 strcpy(match.description, "Rate Limit Exceeded");
             }
         }

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>壁垒WAF · 安全防护监控大屏</title>
+<link rel="icon" href="/images/favicon.ico" type="image/x-icon">
 <style>
 :root{
   --bg:#0b1220; --panel:rgba(17,32,58,.62); --panel2:rgba(13,25,46,.85);
@@ -233,9 +234,9 @@ function renderTypes(types){
     series:[{type:"pie",radius:["52%","76%"],center:["36%","52%"],data,
       label:{show:false},labelLine:{show:false},
       itemStyle:{borderColor:"#0b1220",borderWidth:2}}],
-    graphic:[{type:"text",left:"27%",top:"46%",style:{text:String(types.reduce((a,t)=>a+t.count,0)),
-      fill:"#d8e4f5",fontSize:22,fontWeight:700,textAlign:"center"},
-      },{type:"text",left:"29%",top:"58%",style:{text:"总攻击",fill:"#7d8fa8",fontSize:11}}]
+    graphic:[{type:"text",left:"36%",top:"45%",style:{text:String(types.reduce((a,t)=>a+t.count,0)),
+      fill:"#d8e4f5",fontSize:22,fontWeight:700,textAlign:"center",textVerticalAlign:"middle"},
+      },{type:"text",left:"36%",top:"59%",style:{text:"总攻击",fill:"#7d8fa8",fontSize:11,textAlign:"center",textVerticalAlign:"middle"}}]
   },true);
 }
 

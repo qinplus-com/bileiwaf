@@ -667,7 +667,92 @@ static const char *mime_of(const char *path) {
     if (!strcmp(e, ".md"))   return "text/markdown";
     if (!strcmp(e, ".jpg") || !strcmp(e, ".jpeg")) return "image/jpeg";
     if (!strcmp(e, ".webp")) return "image/webp";
+    if (!strcmp(e, ".gif"))  return "image/gif";
+    if (!strcmp(e, ".mp4"))  return "video/mp4";
+    if (!strcmp(e, ".webm")) return "video/webm";
+    if (!strcmp(e, ".m3u8")) return "application/vnd.apple.mpegurl";
+    if (!strcmp(e, ".ts"))   return "video/mp2t";
     return "application/octet-stream";
+}
+
+/* 静态资源缓存策略：图片/视频内容稳定，给长缓存；HLS 清单可能更新，短缓存；
+ * 其余类型返回 NULL，维持 send_response 默认的 no-store。 */
+static const char *cache_policy_for(const char *path) {
+    const char *e = strrchr(path, '.');
+    if (!e) return NULL;
+    if (!strcmp(e, ".png") || !strcmp(e, ".jpg") || !strcmp(e, ".jpeg") ||
+        !strcmp(e, ".gif") || !strcmp(e, ".svg") || !strcmp(e, ".ico") ||
+        !strcmp(e, ".webp"))
+        return "public, max-age=604800";                  /* 图片：7 天 */
+    if (!strcmp(e, ".mp4") || !strcmp(e, ".webm") || !strcmp(e, ".ts"))
+        return "public, max-age=2592000, immutable";      /* 视频/切片：30 天 */
+    if (!strcmp(e, ".m3u8"))
+        return "public, max-age=60";                      /* HLS 清单：60 秒 */
+    return NULL;
+}
+
+/* HTTP 日期（If-Modified-Since / Last-Modified）解析与格式化 */
+static time_t http_parse_date(const char *s) {
+    struct tm tmv;
+    memset(&tmv, 0, sizeof(tmv));
+    if (!strptime(s, "%a, %d %b %Y %H:%M:%S GMT", &tmv)) return 0;
+    return timegm(&tmv);
+}
+
+static void http_format_date(time_t t, char *out, size_t cap) {
+    struct tm tmv;
+    gmtime_r(&t, &tmv);
+    strftime(out, cap, "%a, %d %b %Y %H:%M:%S GMT", &tmv);
+}
+
+/* 当前请求的 If-Modified-Since（线程局部，handle_client 解析后由静态服务使用） */
+static __thread time_t t_req_ims = 0;
+
+/* 图片/视频等可缓存静态资源的响应：带 Last-Modified 与指定 Cache-Control */
+static void send_cacheable_response(int fd, const char *status, const char *ctype,
+                                    const char *body, size_t blen,
+                                    time_t mtime, const char *cache) {
+    char lastmod[64] = "";
+    if (mtime > 0) http_format_date(mtime, lastmod, sizeof(lastmod));
+    char header[768];
+    int hlen = snprintf(header, sizeof(header),
+        "HTTP/1.1 %s\r\n"
+        "Content-Type: %s\r\n"
+        "Content-Length: %zu\r\n"
+        "Last-Modified: %s\r\n"
+        "Cache-Control: %s\r\n"
+        "Connection: close\r\n"
+        "\r\n",
+        status, ctype, blen, lastmod, cache);
+    if (hlen > 0) {
+        ssize_t w = write(fd, header, (size_t)hlen);
+        (void)w;
+    }
+    if (body && blen) {
+        size_t off = 0;
+        while (off < blen) {
+            ssize_t w = write(fd, body + off, blen - off);
+            if (w <= 0) break;
+            off += (size_t)w;
+        }
+    }
+}
+
+/* 可缓存资源的统一出口：命中 If-Modified-Since 直接 304，否则 200 + 缓存头 */
+static void serve_file_cached(int fd, const char *full, char *data, size_t len) {
+    struct stat st;
+    time_t mtime = (stat(full, &st) == 0) ? st.st_mtime : 0;
+    const char *cc = cache_policy_for(full);
+    const char *mime = mime_of(full);
+    if (!cc) {                       /* 非图片/视频：维持原 no-store 行为 */
+        send_response(fd, "200 OK", mime, data, len);
+        return;
+    }
+    if (mtime > 0 && t_req_ims > 0 && mtime <= t_req_ims) {
+        send_cacheable_response(fd, "304 Not Modified", mime, NULL, 0, mtime, cc);
+        return;
+    }
+    send_cacheable_response(fd, "200 OK", mime, data, len, mtime, cc);
 }
 
 /* 提供 docroot 下的静态文件（拒绝 .. 防穿越；后端仅监听 127.0.0.1，仍双保险） */
@@ -678,7 +763,7 @@ static void serve_static(int fd, const char *rel) {
     size_t len = 0;
     char *data = read_whole_file(full, &len);
     if (!data) { send_error(fd, "404 Not Found", "not found"); return; }
-    send_response(fd, "200 OK", mime_of(full), data, len);
+    serve_file_cached(fd, full, data, len);
     free(data);
 }
 
@@ -699,7 +784,7 @@ static void serve_admin_static(int fd, const char *rel) {
     size_t len = 0;
     char *data = read_whole_file(full, &len);
     if (!data) { send_error(fd, "404 Not Found", "not found"); return; }
-    send_response(fd, "200 OK", mime_of(full), data, len);
+    serve_file_cached(fd, full, data, len);
     free(data);
 }
 
@@ -849,6 +934,18 @@ static void stats_parse_attack_fp(stats_data_t *s, FILE *fp, const char *month_s
             if (cur_sev >= 4) s->sev_high++;
             else if (cur_sev == 3) s->sev_mid++;
             else s->sev_low++;
+            /* 历史日志兜底：v1.0.6 前 CC 拦截（Rule 空/Sev 8）与黑名单命中
+             * （Rule 空/Sev 0，Type 被误标为 SQL_INJECTION）不写 Rule 字段，
+             * 空串会让命中规则 TOP 榜渲染出空白条目；按特征归入与写入端
+             * 一致的规则 ID（CC-LIMIT / IP-BLACKLIST），新旧日志同键聚合 */
+            if (!cur_rule[0]) {
+                if (!strcmp(cur_type, "CC"))
+                    snprintf(cur_rule, sizeof(cur_rule), "CC-LIMIT");
+                else if (cur_sev == 0)
+                    snprintf(cur_rule, sizeof(cur_rule), "IP-BLACKLIST");
+                else
+                    snprintf(cur_rule, sizeof(cur_rule), "BUILTIN/AI");
+            }
             bump(s->rules, &s->nrules, 256, cur_rule);
         } else if (strstr(line, "| IP: ")) {
             char buf[600] = "";
@@ -866,13 +963,17 @@ static void stats_parse_attack_fp(stats_data_t *s, FILE *fp, const char *month_s
 }
 
 /* 解析单个访问日志文件（当前文件或轮转归档），req_total / req_ok /
- * req_forbidden / req_other 仅统计本月。 */
+ * req_forbidden / req_other 仅统计本月。
+ * 注意：access 日志写入的是完整 URL（含 query，最长 MAX_URL_LENGTH=8192），
+ * 扫描器/注入类攻击的 URL 动辄数千字符。行缓冲与 URL 缓冲必须按 8K 级别
+ * 预留，否则 sscanf 转换数不足 4 导致整行漏计——攻击日志无此限制，
+ * 长 URL 攻击多的环境会出现「本月攻击 > 本月请求」的倒挂。 */
 static void stats_parse_access_fp(stats_data_t *s, FILE *fp, const char *month_str) {
-    char line[1024];
+    char line[16640];
     while (fgets(line, sizeof(line), fp)) {
         int status = 0;
-        char ts[32], m[16], u[512];
-        if (sscanf(line, "[%31[^]]] %*s %15s %511s %d", ts, m, u, &status) == 4) {
+        char ts[32], m[16], u[8200];
+        if (sscanf(line, "[%31[^]]] %*s %15s %8191s %d", ts, m, u, &status) == 4) {
             if (strncmp(ts, month_str, 7) != 0) continue;   /* 卡片口径：仅本月 */
             s->req_total++;
             if (status == 200) s->req_ok++;
@@ -995,6 +1096,20 @@ typedef struct {
 #ifdef HAVE_MAXMINDDB
 #include <maxminddb.h>
 #include <dlfcn.h>
+#include <stdarg.h>
+
+/* GeoIP 诊断日志：与 admin 访问日志同走 stderr（nohup → logs/admin.log）。
+ * 加载失败历史上完全静默，现全路径留痕便于现场定位。 */
+static void geo_log(const char *fmt, ...) {
+    char ts[32];
+    time_t now = time(NULL);
+    strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", localtime(&now));
+    fprintf(stderr, "[%s] [geoip] ", ts);
+    va_list ap; va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fputc('\n', stderr);
+}
 
 /* 运行期动态加载 libmaxminddb（不产生 DT_NEEDED）：
  * 目标机未安装该库时管理平面照常启动，仅 IP 地理定位降级为空。 */
@@ -1017,11 +1132,16 @@ static int geo_load_lib(void) {
         g_geo_lib = dlopen(names[i], RTLD_NOW | RTLD_LOCAL);
         if (g_geo_lib) break;
     }
-    if (!g_geo_lib) return -1;
+    if (!g_geo_lib) {
+        geo_log("dlopen libmaxminddb 失败: %s（IP 地理定位不可用；安装 libmaxminddb 后重启管理平面）",
+                dlerror() ? dlerror() : "未知错误");
+        return -1;
+    }
     p_mmdb_open   = (mmdb_open_fn)dlsym(g_geo_lib, "MMDB_open");
     p_mmdb_lookup = (mmdb_lookup_fn)dlsym(g_geo_lib, "MMDB_lookup_string");
     p_mmdb_aget   = (mmdb_aget_fn)dlsym(g_geo_lib, "MMDB_aget_value");
     if (!p_mmdb_open || !p_mmdb_lookup || !p_mmdb_aget) {
+        geo_log("dlsym MMDB_* 失败（库版本过旧？），IP 地理定位不可用");
         dlclose(g_geo_lib);
         g_geo_lib = NULL;
         p_mmdb_open = NULL; p_mmdb_lookup = NULL; p_mmdb_aget = NULL;
@@ -1074,10 +1194,20 @@ static int geo_open_db(void) {
     snprintf(cand[n], sizeof(cand[n]), "%s/geoip/GeoLite2-City.mmdb", waf_home()); n++;
     snprintf(cand[n], sizeof(cand[n]), "%s/geoip/GeoLite2-Country.mmdb", waf_home()); n++;
     for (int i = 0; i < n; i++) {
-        if (access(cand[i], R_OK) != 0) continue;
-        if (p_mmdb_open(cand[i], MMDB_MODE_MMAP, &g_geo_mmdb) != MMDB_SUCCESS) continue;
+        if (access(cand[i], R_OK) != 0) {
+            geo_log("候选库不可读，跳过: %s", cand[i]);
+            continue;
+        }
+        int rc = p_mmdb_open(cand[i], MMDB_MODE_MMAP, &g_geo_mmdb);
+        if (rc != MMDB_SUCCESS) {
+            geo_log("MMDB_open 失败: %s (rc=%d)", cand[i], rc);
+            continue;
+        }
+        geo_log("已加载 GeoIP 库: %s", cand[i]);
         return 1;
     }
+    geo_log("未找到可用 GeoIP 库（WAF_HOME=%s）；请将 GeoLite2-City.mmdb 放入 $WAF_HOME/geoip/ "
+            "或在 config/waf.conf 配置 geoip_db 键，然后重启管理平面", waf_home());
     return -1;
 }
 
@@ -2834,6 +2964,22 @@ static void handle_client(int fd, const char *client_ip, int on_admin_plane) {
         cookie_hdr[cl2] = '\0';
     }
 
+    /* If-Modified-Since 头（静态资源 304 条件请求用；仅限请求头范围内） */
+    t_req_ims = 0;
+    char *hdr_end2 = strstr(buf, "\r\n\r\n");
+    char *im = strcasestr(buf, "\r\nIf-Modified-Since:");
+    if (im && (!hdr_end2 || im < hdr_end2)) {
+        im += 20;
+        while (*im == ' ' || *im == '\t') im++;
+        char ims_val[64];
+        char *e = strstr(im, "\r\n");
+        size_t il = e ? (size_t)(e - im) : strlen(im);
+        if (il >= sizeof(ims_val)) il = sizeof(ims_val) - 1;
+        memcpy(ims_val, im, il);
+        ims_val[il] = '\0';
+        t_req_ims = http_parse_date(ims_val);
+    }
+
     /* 拆出 query string */
     char qs[1024] = "";
     char *qm = strchr(path, '?');
@@ -2972,8 +3118,13 @@ static void handle_client(int fd, const char *client_ip, int on_admin_plane) {
         send_redirect(fd, "/admin/dashboard");
         return;
     }
+    /* 演示目录入口（只读演示首页） */
+    if (strcmp(path, "/demo/") == 0) {
+        serve_static(fd, "demo/index.html");
+        return;
+    }
     /* 演示站点（WAF 功能攻防演示） */
-    if (strcmp(path, "/demo") == 0 || strcmp(path, "/demo/") == 0) {
+    if (strcmp(path, "/demo") == 0) {
         size_t len = 0;
         char *html = read_whole_file(g_showcase_path, &len);
         if (html) {
@@ -2998,13 +3149,12 @@ static void handle_client(int fd, const char *client_ip, int on_admin_plane) {
         serve_static(fd, path + 1);
         return;
     }
-    /* 文档页（使用手册 / 安装手册）与只读演示后台 */
-    if (!strncmp(path, "/docs/", 6)) {
+    /* 文档页（使用手册 / 安装手册）与只读演示目录 */
+    if (!strncmp(path, "/docs/", 6) || !strncmp(path, "/demo/", 6)) {
         serve_static(fd, path + 1);
         return;
     }
-    if (!strcmp(path, "/demo-login.html") || !strcmp(path, "/demo-admin.html") ||
-        !strcmp(path, "/showcase.html") || !strcmp(path, "/404.html") ||
+    if (!strcmp(path, "/showcase.html") || !strcmp(path, "/404.html") ||
         !strcmp(path, "/robots.txt") || !strcmp(path, "/sitemap.xml")) {
         serve_static(fd, path + 1);
         return;

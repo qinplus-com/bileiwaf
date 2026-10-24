@@ -1234,6 +1234,13 @@ int rules_check_request(http_request_t *req, attack_match_t *match) {
     /* client_ip 为空时不得拦截：is_ip_allowed(NULL) 返回 0，
      * 原逻辑会把解析不到对端 IP 的正常请求以空规则(类型0/严重度0)误拦 */
     if (req->client_ip[0] && !is_ip_allowed(req->client_ip)) {
+        /* 黑名单命中须补全 match：此前直接 return 1，match 保持 {0}，
+         * 攻击日志记成 Type: SQL_INJECTION(0) + Rule 空，
+         * 类型分布图误标、命中规则 TOP 榜出现空白条目 */
+        match->type = ATTACK_UNKNOWN;
+        match->severity = 10;
+        snprintf(match->rule_id, sizeof(match->rule_id), "IP-BLACKLIST");
+        snprintf(match->description, sizeof(match->description), "IP Blacklisted");
         return 1;
     }
 
