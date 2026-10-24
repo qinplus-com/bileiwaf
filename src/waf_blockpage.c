@@ -85,6 +85,12 @@ static const char *BP_MODAL_TPL =
 ".adlayer .hint{font-size:12px;color:#5f7590;letter-spacing:.5px}\n"
 ".ad{text-align:center}\n.ad img{max-width:100%;border:0;border-radius:10px}\n"
 ".ad iframe{width:100%;border:0}\n.ad .tag{margin-top:6px;font-size:11px;color:#5b6d85}\n"
+".promo{max-width:520px;padding:0 8px;text-align:center}\n"
+".promo .p-brand{color:#22d3ee;font-weight:700;letter-spacing:2px;font-size:13px;margin-bottom:8px}\n"
+".promo .p-pitch{font-size:17px;font-weight:700;margin-bottom:12px}\n"
+".promo .p-list{list-style:none;margin:0 0 16px;padding:0;font-size:12px;color:#8296ad;line-height:2.1}\n"
+".promo .p-cta{display:inline-block;padding:9px 18px;border:1px solid #22d3ee;border-radius:9px;"
+"background:#0f2b45;color:#9fe8f6;font-size:13px;text-decoration:none}\n"
 ".mask{position:fixed;inset:0;background:rgba(4,10,20,.74);backdrop-filter:blur(2px)}\n"
 ".modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(500px,92vw);"
 "padding:28px 26px;border:1px solid #1c2f4d;border-radius:16px;"
@@ -353,14 +359,28 @@ size_t blockpage_render(char *out, size_t outsz,
     strftime(tstr, sizeof(tstr), "%Y-%m-%d %H:%M:%S", localtime(&now));
 
     int show_ad = g_conf.ad_enabled && (!g_conf.ad_browser_only || bp_is_browser(ua));
-    const char *ad_html = show_ad ? g_ad : "";
-    size_t ad_html_len = show_ad ? g_ad_len : 0;
 
     char esc_title[512], esc_site[512], esc_link[1400];
     bp_escape(g_conf.modal_title, esc_title, sizeof(esc_title));
     bp_escape(g_conf.modal_site, esc_site, sizeof(esc_site));
     bp_escape(bp_url_ok(g_conf.modal_link) ? g_conf.modal_link : "https://bileiwaf.com",
               esc_link, sizeof(esc_link));
+
+    /* 未挂广告（或非浏览器 UA）时底层放产品宣传板：403 页基本只有扫描器会看到，
+       主要用途是为 bileiwaf.com 引流，而非广告变现 */
+    char promo[2048];
+    snprintf(promo, sizeof(promo),
+        "<div class=\"promo\"><div class=\"p-brand\">壁垒WAF</div>"
+        "<div class=\"p-pitch\">网站安全防护，部署即生效</div>"
+        "<ul class=\"p-list\">"
+        "<li>实时拦截 SQL 注入、XSS、命令注入等 OWASP 威胁</li>"
+        "<li>CC 攻击与恶意爬虫限流，清洗虚假流量</li>"
+        "<li>攻击态势大屏与规则命中分析，5 分钟完成接入</li>"
+        "</ul><a class=\"p-cta\" href=\"%s\" rel=\"noopener\">了解 %s →</a></div>",
+        esc_link, esc_site);
+
+    const char *ad_html = show_ad ? g_ad : promo;
+    size_t ad_html_len = show_ad ? g_ad_len : strlen(promo);
 
     pthread_mutex_lock(&g_bp_lock);
     if (!g_ready || !g_conf.enabled || g_tpl_len == 0) {
