@@ -23,4 +23,8 @@ size_t blockpage_render(char *out, size_t outsz,
                         const char *ip, const char *rule, const char *url,
                         const char *ua);
 
+/* 是否启用「继续浏览前需人机验证」：启用后数据平面会放行持有 captcha
+ * 放行 cookie 的来源 IP，并开放 /waf-captcha 端点。 */
+int blockpage_verify_enabled(void);
+
 #endif

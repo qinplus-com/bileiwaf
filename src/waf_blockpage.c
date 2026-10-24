@@ -29,6 +29,7 @@ typedef struct {
     char modal_site[160];               /* 站点文案，如 "bileiwaf.com" */
     char modal_link[BP_PATH_MAX];       /* 弹窗主按钮链接，如 https://bileiwaf.com */
     int  ad_browser_only;               /* 1=仅浏览器 UA 展示广告（降低无效流量） */
+    int  verify;                        /* 1=「继续浏览」需人机验证后才放行 */
 } bp_conf_t;
 
 static bp_conf_t   g_conf;
@@ -111,8 +112,7 @@ static const char *BP_MODAL_TPL =
 "<p class=\"lead\">网站安全防护，部署即生效</p>\n"
 "<div class=\"acts\">\n"
 "<a class=\"btn\" href=\"{{link}}\" rel=\"noopener\">访问 {{site}}</a>\n"
-"<button class=\"btn ghost\" type=\"button\" onclick=\"document.getElementById('bwMask').style.display='none';"
-"document.getElementById('bwModal').style.display='none'\">继续浏览</button>\n"
+"{{verify}}\n"
 "</div>\n</div>\n</body>\n</html>";
 
 static const char *bp_home(void) {
@@ -164,6 +164,46 @@ static int bp_url_ok(const char *u) {
     return u && (strncmp(u, "http://", 7) == 0 || strncmp(u, "https://", 8) == 0);
 }
 
+/* URL 编码（'/' 保留，便于肉眼识别回跳地址） */
+static void bp_urlenc(const char *src, char *out, size_t outsz) {
+    static const char hex[] = "0123456789ABCDEF";
+    size_t o = 0;
+    for (const unsigned char *p = (const unsigned char *)src; *p && o + 4 < outsz; p++) {
+        unsigned char c = *p;
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~' || c == '/')
+            out[o++] = (char)c;
+        else {
+            out[o++] = '%';
+            out[o++] = hex[c >> 4];
+            out[o++] = hex[c & 0x0F];
+        }
+    }
+    out[o] = '\0';
+}
+
+/* 「继续浏览」按钮：开启人机验证时跳转验证页（带原始 URL 回跳），
+ * 关闭时退回原行为（仅关闭弹窗查看底层宣传内容） */
+static void bp_build_verify(char *out, size_t outsz, const char *url) {
+    if (g_conf.enabled && g_conf.verify) {
+        char enc[4096];
+        bp_urlenc(url && url[0] ? url : "/", enc, sizeof(enc));
+        snprintf(out, outsz,
+            "<a class=\"btn ghost\" href=\"/waf-captcha?to=%s\" rel=\"noopener\">"
+            "继续浏览（需验证）</a>", enc);
+    } else {
+        snprintf(out, outsz,
+            "<button class=\"btn ghost\" type=\"button\" onclick=\""
+            "document.getElementById('bwMask').style.display='none';"
+            "document.getElementById('bwModal').style.display='none'\">继续浏览</button>");
+    }
+}
+
+/* 供数据平面判断：是否需要对 403 放行请求做人机验证 */
+int blockpage_verify_enabled(void) {
+    return g_conf.enabled && g_conf.verify;
+}
+
 static void bp_trim(char *s) {
     char *p = s;
     while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
@@ -178,6 +218,7 @@ static int bp_load_conf(void) {
     g_conf.enabled = 0;
     g_conf.ad_enabled = 0;
     g_conf.ad_browser_only = 1;
+    g_conf.verify = 1;
     snprintf(g_conf.ad_mode, sizeof(g_conf.ad_mode), "none");
     snprintf(g_conf.style, sizeof(g_conf.style), "simple");
     snprintf(g_conf.modal_title, sizeof(g_conf.modal_title), "%s", "BILEI WAF 提供技术服务");
@@ -219,6 +260,7 @@ static int bp_load_conf(void) {
         else if (!strcmp(key, "modal_site"))      snprintf(g_conf.modal_site, sizeof(g_conf.modal_site), "%s", val);
         else if (!strcmp(key, "modal_link"))      snprintf(g_conf.modal_link, sizeof(g_conf.modal_link), "%s", val);
         else if (!strcmp(key, "ad_browser_only")) g_conf.ad_browser_only = atoi(val);
+        else if (!strcmp(key, "verify"))         g_conf.verify = atoi(val);
     }
     fclose(fp);
     return 0;
@@ -373,6 +415,9 @@ size_t blockpage_render(char *out, size_t outsz,
     const char *ad_html = show_ad ? g_ad : promo;
     size_t ad_html_len = show_ad ? g_ad_len : strlen(promo);
 
+    char verify_html[4300];
+    bp_build_verify(verify_html, sizeof(verify_html), url);
+
     pthread_mutex_lock(&g_bp_lock);
     if (!g_ready || !g_conf.enabled || g_tpl_len == 0) {
         pthread_mutex_unlock(&g_bp_lock);
@@ -396,6 +441,7 @@ size_t blockpage_render(char *out, size_t outsz,
                 else if (klen == 5 && !strncmp(g_tpl + i + 2, "title", 5)) { rep = esc_title; rep_len = strlen(esc_title); }
                 else if (klen == 4 && !strncmp(g_tpl + i + 2, "site", 4)) { rep = esc_site;  rep_len = strlen(esc_site); }
                 else if (klen == 4 && !strncmp(g_tpl + i + 2, "link", 4)) { rep = esc_link;  rep_len = strlen(esc_link); }
+                else if (klen == 6 && !strncmp(g_tpl + i + 2, "verify", 6)) { rep = verify_html; rep_len = strlen(verify_html); }
 
                 if (rep) {
                     if (o + rep_len >= outsz) { pthread_mutex_unlock(&g_bp_lock); return 0; }

@@ -514,7 +514,10 @@ int captcha_handle(int client_fd, http_request_t *req,
 
         /* 验证通过：发放放行 cookie + 回跳 */
         {
+            /* 放行有效期下限 5 分钟：CC 封禁时长可能配置得很短（如 60s），
+             * 不足以让误报用户完成一次正常浏览，验证完立刻又被拦下 */
             int dur = cc_block_duration();
+            if (dur < 300) dur = 300;
             long expiry = (long)time(NULL) + dur;
             char mac[65];
             cap_clearance_hmac(ip, expiry, mac);

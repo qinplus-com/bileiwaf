@@ -1099,8 +1099,10 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
         }
 
         /* CC 人机验证端点（站点开 cc_captcha 时）：在 CC/规则检测之前处理，
-         * 否则已触发 CC 的 IP 会被拦截而永远拿不到验证页 */
-        if (site && site->cc_captcha && captcha_is_endpoint(request.url)) {
+         * 否则已触发 CC 的 IP 会被拦截而永远拿不到验证页。
+         * 403 页「继续浏览」也复用该端点，因此 blockpage 开启 verify 时同样放通。 */
+        if (captcha_is_endpoint(request.url) &&
+            ((site && site->cc_captcha) || blockpage_verify_enabled())) {
             if (captcha_handle(client_fd, &request, ssl, is_https, keep_alive)) {
                 if (!keep_alive) break;
                 continue;
@@ -1181,12 +1183,24 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
             }
         }
 
+        /* 403 页「继续浏览（需验证）」：已验证真人持有效放行 cookie 时放行本次请求，
+         * 否则验证完仍会被同一条规则拦截。黑名单 IP 不参与放行（人工封禁优先）。 */
+        int bp_verified = 0;
+        if (attack_detected && blockpage_verify_enabled() &&
+            strcmp(match.rule_id, "IP-BLACKLIST") != 0 &&
+            captcha_check_clearance(client_ip, request.headers)) {
+            bp_verified = 1;
+            waf_log(LOG_LEVEL_INFO, "blockpage: verified pass ip=%s rule=%s url=%s",
+                    client_ip, match.rule_id, request.url);
+        }
+
         if (attack_detected) {
             attack_log_entry_t log_entry = {0};
             log_entry.timestamp = time(NULL);
             log_entry.type = match.type;
             log_entry.severity = match.severity;
-            log_entry.action = global_config.mode == WAF_MODE_BLOCKING ? WAF_ACTION_BLOCK : WAF_ACTION_LOG;
+            log_entry.action = (global_config.mode == WAF_MODE_BLOCKING && !bp_verified)
+                               ? WAF_ACTION_BLOCK : WAF_ACTION_LOG;
             strncpy(log_entry.ip, client_ip, MAX_IP_LENGTH - 1);
             strncpy(log_entry.url, request.url, MAX_URL_LENGTH - 1);
             strncpy(log_entry.path, request.path, MAX_URL_LENGTH - 1);
@@ -1204,7 +1218,7 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
                 strncpy(log_entry.request_body, request.body, sizeof(log_entry.request_body) - 1);
             log_write_attack(&log_entry);
 
-            if (global_config.mode == WAF_MODE_BLOCKING) {
+            if (global_config.mode == WAF_MODE_BLOCKING && !bp_verified) {
                 http_response_t blocked_resp = {0};
                 fill_blocked_response(&blocked_resp, &request, client_ip,
                                       match.rule_id[0] ? match.rule_id : "UNKNOWN", keep_alive);
