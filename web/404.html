@@ -3,56 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>404 - 页面不存在 | 壁垒WAF</title>
+<title>壁垒WAF 安全防护</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="您访问的页面不存在或已被移除，请返回壁垒WAF首页。">
 <link rel="icon" href="/images/favicon.ico" type="image/x-icon">
 <style>
-:root{--bg:#0b1220;--cyan:#35e0c8;--blue:#4da3ff;--muted:#7d8fa8;--ink:#d8e4f5}
-*{margin:0;padding:0;box-sizing:border-box}
-body{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink);
-  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;overflow-x:hidden;position:relative;padding:20px}
-body::before{content:"";position:fixed;inset:0;opacity:.5;pointer-events:none;
-  background-image:linear-gradient(rgba(77,163,255,.055) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(77,163,255,.055) 1px,transparent 1px);background-size:52px 52px;
-  -webkit-mask-image:radial-gradient(900px 640px at 50% 45%,#000,transparent 78%);
-  mask-image:radial-gradient(900px 640px at 50% 45%,#000,transparent 78%)}
-.card{position:relative;z-index:1;text-align:center;padding:clamp(28px,6vw,64px) clamp(20px,8vw,88px);border-radius:18px;
-  max-width:100%;background:rgba(15,24,44,.72);border:1px solid #1c2f4d;box-shadow:0 30px 80px rgba(0,0,0,.55)}
-.num{font-size:clamp(64px,18vw,120px);font-weight:800;letter-spacing:clamp(2px,1vw,8px);line-height:1;
-  background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent;
-  text-shadow:0 0 40px rgba(77,163,255,.35)}
-.tip{margin:22px 0 8px;font-size:17px;color:var(--ink);letter-spacing:1px}
-.sub{font-size:13px;color:var(--muted);letter-spacing:1px}
-.badge{display:inline-flex;align-items:center;gap:8px;margin-top:30px;padding:9px 22px;border-radius:22px;
-  border:1px solid rgba(53,224,200,.4);color:var(--cyan);font-size:13px;letter-spacing:1px;background:rgba(53,224,200,.08)}
-.brand{margin-top:34px;display:flex;align-items:center;justify-content:center;gap:10px}
-.brand img{width:44px;height:44px;object-fit:contain}
-.brand b{font-size:16px;letter-spacing:2px}
-.brand small{color:var(--muted);font-size:11px;letter-spacing:2px;display:block;margin-top:2px}
-a.home{display:inline-block;margin-top:26px;color:var(--blue);font-size:14px;text-decoration:none;letter-spacing:1px}
-a.home:hover{text-decoration:underline}
-@media(max-width:520px){
-  .tip{font-size:15px}
-  .sub{font-size:11.5px}
-  .badge{font-size:11.5px;padding:8px 14px;letter-spacing:0}
-  .brand{gap:8px}
-  .brand b{font-size:15px}
-  .brand small{font-size:10px;letter-spacing:1px}
-}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#0b1220;color:#d8e4f5;
+  font:14px/1.75 -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}
+.adlayer{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px}
+.hint{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:11px;color:#5b6d85}
+.promo{max-width:520px;padding:0 8px;text-align:center}
+.promo .p-brand{color:#22d3ee;font-weight:700;letter-spacing:2px;font-size:13px;margin-bottom:8px}
+.promo .p-pitch{font-size:17px;font-weight:700;margin-bottom:12px}
+.promo .p-list{list-style:none;margin:0 0 16px;padding:0;font-size:12px;color:#8296ad;line-height:2.1}
+.promo .p-cta{display:inline-block;padding:9px 18px;border:1px solid #22d3ee;border-radius:9px;
+  background:#0f2b45;color:#9fe8f6;font-size:13px;text-decoration:none}
+.mask{position:fixed;inset:0;background:rgba(3,8,18,.72);backdrop-filter:blur(2px)}
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(500px,92vw);
+  padding:28px 26px;border:1px solid #1c2f4d;border-radius:16px;
+  background:linear-gradient(160deg,#12233f,#0d1a2e);box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.modal .brand{color:#22d3ee;font-weight:700;letter-spacing:2px;font-size:13px}
+.modal .site{color:#7fa6d0;font-size:12px;word-break:break-all;margin-top:2px}
+.chip{display:inline-block;margin-top:10px;padding:2px 12px;border:1px solid #294260;border-radius:20px;
+  font-size:11px;letter-spacing:2px;color:#8fb3d9}
+.modal .lead{margin:14px 0 0;font-size:15px;font-weight:600;color:#d8e4f5}
+.acts{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.btn{flex:1;min-width:140px;text-align:center;padding:9px 14px;border-radius:9px;border:1px solid #22d3ee;
+  background:#0f2b45;color:#9fe8f6;font-size:13px;text-decoration:none;cursor:pointer;font-family:inherit}
+.btn.ghost{border-color:#294260;background:transparent;color:#9fb3ca}
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="num">404</div>
-    <div class="tip">您访问的页面不存在或已被移除</div>
-    <div class="sub">The page you requested does not exist or has been removed</div>
-    <div class="badge">✦ 404 页面支持用户自定义 · 本页由站点管理员配置</div>
-    <div class="brand">
-      <img src="/images/bileiwaf_logo.png" alt="logo">
-      <div style="text-align:left"><b>壁垒WAF</b><small>BILEIWAF · WEB APPLICATION FIREWALL</small></div>
-    </div>
-    <a class="home" href="/">返回首页 →</a>
+<div class="adlayer">
+  <div class="promo">
+    <div class="p-brand">壁垒WAF</div>
+    <div class="p-pitch">网站安全防护，部署即生效</div>
+    <ul class="p-list">
+      <li>实时拦截 SQL 注入、XSS、命令注入等 OWASP 威胁</li>
+      <li>CC 攻击与恶意爬虫限流，清洗虚假流量</li>
+      <li>攻击态势大屏与规则命中分析，5 分钟完成接入</li>
+    </ul>
+    <a class="p-cta" href="https://bileiwaf.com" rel="noopener">了解 bileiwaf.com →</a>
   </div>
+  <div class="hint">本站由 壁垒WAF 提供安全防护</div>
+</div>
+<div class="mask" id="bwMask"></div>
+<div class="modal" id="bwModal" role="dialog" aria-modal="true" aria-label="BILEI WAF 提供技术支持">
+  <div class="brand">BILEI WAF 提供技术支持</div>
+  <div class="site">bileiwaf.com</div>
+  <div class="chip">404</div>
+  <p class="lead">网站安全防护，部署即生效</p>
+  <div class="acts">
+    <a class="btn" href="https://bileiwaf.com" rel="noopener">访问 bileiwaf.com</a>
+    <button class="btn ghost" type="button" onclick="document.getElementById('bwMask').style.display='none';document.getElementById('bwModal').style.display='none'">继续浏览</button>
+  </div>
+</div>
 </body>
 </html>

@@ -371,19 +371,29 @@ static void http_format_date(time_t t, char *out, size_t cap) {
 /* 404 响应体：直接内嵌 WAF 产品页（web/index.html），并在 </body> 前注入弹窗提示。
  * 相对路径 web/index.html 基于 WAF_HOME（start.sh 以启动目录为 cwd）。
  * 读取失败时回退为极简 404 页。返回体长度写入 *out_len。 */
+/* 404 弹窗：与 403 拦截页同一视觉（品牌 + 站点 + 状态标签 + 标语 + 双按钮），
+ * 仅状态标签不同（404 / 403），便于用户区分是「页面不存在」还是「被安全策略拦截」。
+ * 自包含内联样式，注入到 web/index.html 的 </body> 前。 */
 static const char *waf_404_popup_html =
-    "<div id=\"waf404mask\" style=\"position:fixed;inset:0;background:rgba(0,0,0,.55);"
-    "z-index:99999;display:flex;align-items:center;justify-content:center\">"
-    "<div style=\"background:#101a30;border:1px solid #1f2b45;border-radius:14px;"
-    "padding:28px 32px;max-width:420px;text-align:center;"
-    "box-shadow:0 18px 60px rgba(0,0,0,.5);font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif\">"
-    "<div style=\"font-size:44px;font-weight:800;color:#22d3ee;letter-spacing:3px\">404</div>"
-    "<div style=\"margin:12px 0 20px;font-size:14px;color:#dbe6f5;line-height:1.7\">"
-    "您访问的页面不存在或已被移除，<br>已为您展示壁垒WAF产品页面</div>"
-    "<button onclick=\"document.getElementById('waf404mask').remove()\" style=\""
-    "background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff;border:none;"
-    "border-radius:8px;padding:9px 26px;font-size:13.5px;cursor:pointer\">知道了</button>"
-    "</div></div>";
+    "<div id=\"waf404mask\" style=\"position:fixed;inset:0;background:rgba(3,8,18,.72);"
+    "backdrop-filter:blur(2px);z-index:99999;display:flex;align-items:center;justify-content:center;"
+    "padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif\">"
+    "<div style=\"width:min(500px,92vw);padding:28px 26px;border:1px solid #1c2f4d;border-radius:16px;"
+    "background:linear-gradient(160deg,#12233f,#0d1a2e);box-shadow:0 24px 64px rgba(0,0,0,.6);"
+    "color:#d8e4f5;font-size:14px;line-height:1.75\">"
+    "<div style=\"color:#22d3ee;font-weight:700;letter-spacing:2px;font-size:13px\">BILEI WAF 提供技术支持</div>"
+    "<div style=\"color:#7fa6d0;font-size:12px;margin-top:2px\">bileiwaf.com</div>"
+    "<div style=\"display:inline-block;margin-top:10px;padding:2px 12px;border:1px solid #294260;"
+    "border-radius:20px;font-size:11px;letter-spacing:2px;color:#8fb3d9\">404</div>"
+    "<div style=\"margin:14px 0 0;font-size:15px;font-weight:600;color:#d8e4f5\">网站安全防护，部署即生效</div>"
+    "<div style=\"display:flex;gap:10px;margin-top:16px;flex-wrap:wrap\">"
+    "<a href=\"https://bileiwaf.com\" rel=\"noopener\" style=\"flex:1;min-width:140px;text-align:center;"
+    "padding:9px 14px;border-radius:9px;border:1px solid #22d3ee;background:#0f2b45;color:#9fe8f6;"
+    "font-size:13px;text-decoration:none\">访问 bileiwaf.com</a>"
+    "<button onclick=\"document.getElementById('waf404mask').remove()\" style=\"flex:1;min-width:140px;"
+    "padding:9px 14px;border-radius:9px;border:1px solid #294260;background:transparent;color:#9fb3ca;"
+    "font-size:13px;cursor:pointer;font-family:inherit\">继续浏览</button>"
+    "</div></div></div>";
 
 static const char *waf_404_fallback_html =
     "<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>";
