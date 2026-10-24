@@ -767,6 +767,18 @@ static void serve_static(int fd, const char *rel) {
     free(data);
 }
 
+/* 统一 404 页（g_docroot/404.html）：与数据平面 403/404 弹窗同一视觉，
+ * 供未知路径的浏览器访问兜底，避免把后端实现的 JSON 暴露到前端 */
+static void serve_404_page(int fd) {
+    char full[1024];
+    snprintf(full, sizeof(full), "%s/404.html", g_docroot);
+    size_t len = 0;
+    char *data = read_whole_file(full, &len);
+    if (!data) { send_error(fd, "404 Not Found", "not found"); return; }
+    send_response(fd, "404 Not Found", "text/html", data, len);
+    free(data);
+}
+
 /* 302 重定向（后端平面引导到管理平面 / 大屏登录闸门共用） */
 static void send_redirect(int fd, const char *location) {
     char extra[768];
@@ -3160,12 +3172,26 @@ static void handle_client(int fd, const char *client_ip, int on_admin_plane) {
         return;
     }
 
-    /* 其他路径：普通业务响应 */
-    char rbody[256];
-    int blen = snprintf(rbody, sizeof(rbody),
-        "{\"success\":true,\"backend\":\"waf-demo-backend\",\"path\":\"%s\","
-        "\"message\":\"Hello! 该请求已通过 WAF 转发到受保护的业务后端\"}", path);
-    send_response(fd, "200 OK", "application/json", rbody, (size_t)blen);
+    /* 其他路径：不再回显后端标识与转发说明。
+     * 浏览器（Accept 含 text/html）返回统一 404 页；API 客户端返回简洁 JSON。 */
+    int want_html = 1;
+    {
+        char *ac = strcasestr(buf, "\r\nAccept:");
+        if (ac && (!hdr_end2 || ac < hdr_end2)) {
+            ac += 2;   /* 跳过行首 CRLF，否则下面的 strstr 会立刻命中它 */
+            char *ae = strstr(ac, "\r\n");
+            size_t al = ae ? (size_t)(ae - ac) : strlen(ac);
+            char av[256];
+            if (al >= sizeof(av)) al = sizeof(av) - 1;
+            memcpy(av, ac, al);
+            av[al] = '\0';
+            want_html = strcasestr(av, "text/html") || strcasestr(av, "application/xhtml") ? 1 : 0;
+        }
+    }
+    if (want_html) { serve_404_page(fd); return; }
+
+    static const char not_found_json[] = "{\"success\":false,\"error\":\"not found\"}";
+    send_response(fd, "404 Not Found", "application/json", not_found_json, sizeof(not_found_json) - 1);
 }
 
 /* 每个客户端连接一个线程：并发处理，避免单个慢连接阻塞全局 */
