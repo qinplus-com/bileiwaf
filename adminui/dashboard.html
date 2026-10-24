@@ -221,6 +221,24 @@ const AXIS = {axisLine:{lineStyle:{color:"#2a3f63"}},axisLabel:{color:"#7d8fa8",
   splitLine:{lineStyle:{color:"rgba(28,47,77,.55)"}}};
 window.addEventListener("resize",()=>Object.values(charts).forEach(c=>c.resize()));
 
+/* 环形图中心文字：ECharts graphic 按包围盒左上角定位（style.align 对单行文本
+   不生效），故用 canvas 量宽度后换算像素坐标，保证居中的是文字本身而非左边缘 */
+const _ctCtx = document.createElement("canvas").getContext("2d");
+function centerBlock(c, xPct, yPct, total){
+  const W = c.getWidth(), H = c.getHeight();
+  if (W < 60 || H < 60) return [];
+  const cx = W * xPct, cy = H * yPct, l1 = String(total), l2 = "总攻击";
+  _ctCtx.font = "700 22px sans-serif";
+  const w1 = _ctCtx.measureText(l1).width;
+  _ctCtx.font = "11px sans-serif";
+  const w2 = _ctCtx.measureText(l2).width;
+  const h1 = 26, h2 = 14, gap = 2, top = cy - (h1 + gap + h2) / 2;
+  return [
+    {type:"text", left: cx - w1/2, top: top, style:{text:l1, fill:"#d8e4f5", fontSize:22, fontWeight:700}},
+    {type:"text", left: cx - w2/2, top: top + h1 + gap, style:{text:l2, fill:"#7d8fa8", fontSize:11}}
+  ];
+}
+
 /* 类型 donut */
 function renderTypes(types){
   const c = charts.typeChart; if(!c) return;
@@ -234,9 +252,7 @@ function renderTypes(types){
     series:[{type:"pie",radius:["52%","76%"],center:["36%","52%"],data,
       label:{show:false},labelLine:{show:false},
       itemStyle:{borderColor:"#0b1220",borderWidth:2}}],
-    graphic:[{type:"text",left:"36%",top:"45%",style:{text:String(types.reduce((a,t)=>a+t.count,0)),
-      fill:"#d8e4f5",fontSize:22,fontWeight:700,align:"center",verticalAlign:"middle"},
-      },{type:"text",left:"36%",top:"59%",style:{text:"总攻击",fill:"#7d8fa8",fontSize:11,align:"center",verticalAlign:"middle"}}]
+    graphic:centerBlock(c, 0.36, 0.52, types.reduce((a,t)=>a+t.count,0))
   },true);
 }
 
