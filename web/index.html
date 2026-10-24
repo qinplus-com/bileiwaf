@@ -82,6 +82,13 @@ a{text-decoration:none;color:inherit}
 .nav-links a:hover{color:var(--cyan);background:rgba(53,224,200,.08)}
 .nav-links .cta{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff!important;font-weight:600}
 .nav-links .cta:hover{filter:brightness(1.15)}
+/* 窄屏汉堡菜单 */
+.nav-toggle{display:none;margin-left:auto;width:42px;height:40px;flex-direction:column;justify-content:center;gap:5px;
+  padding:0 11px;background:rgba(53,224,200,.06);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.nav-toggle span{display:block;height:2px;border-radius:2px;background:var(--ink);transition:.25s}
+.nav-toggle[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-toggle[aria-expanded="true"] span:nth-child(2){opacity:0}
+.nav-toggle[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
 /* Hero */
 .hero{padding:96px 0 76px;position:relative;overflow:hidden}
 .hero::after{content:"";position:absolute;right:-140px;top:-140px;width:520px;height:520px;border-radius:50%;
@@ -163,10 +170,15 @@ footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-s
   section{padding:52px 0}
 }
 @media(max-width:760px){
-  .nav-in{height:auto;flex-wrap:wrap;padding:10px 0;gap:2px}
-  .nav-links{margin-left:0;width:100%;overflow-x:auto;justify-content:flex-start;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .nav-links::-webkit-scrollbar{display:none}
-  .nav-links a{white-space:nowrap;padding:6px 10px;font-size:13px}
+  .nav-in{height:64px;padding:0 16px}
+  .nav-toggle{display:flex}
+  .nav-links{position:absolute;left:0;right:0;top:100%;flex-direction:column;align-items:stretch;gap:0;margin:0;
+    padding:8px 16px 14px;background:rgba(9,15,27,.985);border-bottom:1px solid var(--line);
+    box-shadow:0 18px 40px rgba(0,0,0,.5);max-height:0;overflow:hidden;opacity:0;pointer-events:none;
+    transition:max-height .28s ease,opacity .2s}
+  .nav-links.open{max-height:78vh;overflow-y:auto;opacity:1;pointer-events:auto}
+  .nav-links a{padding:11px 12px;font-size:14.5px;white-space:normal}
+  .nav-links .cta{margin-top:6px;text-align:center}
   .wrap{padding:0 16px}
 }
 @media(max-width:560px){
@@ -190,12 +202,18 @@ footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-s
 
 <nav class="nav"><div class="wrap nav-in">
   <a class="logo" href="/"><img src="/images/bileiwaf_logo.png" alt="壁垒WAF"></a>
-  <div class="nav-links">
+  <button class="nav-toggle" id="navToggle" aria-label="展开菜单" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
     <a href="#features">产品功能</a>
     <a href="#arch">产品架构</a>
     <a href="#scenes">应用场景</a>
     <a href="/screen.html">大屏演示</a>
     <a href="/report.html">测试报告</a>
+    <a href="/docs/usage.html">使用手册</a>
+    <a href="/docs/install.html">安装手册</a>
+    <a href="/demo-login.html">后台演示</a>
     <a class="cta" href="/demo">攻防演示</a>
   </div>
 </div></nav>
@@ -291,5 +309,26 @@ footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-s
   <div>© 2026 内蒙古勤加软件有限公司 · 版权所有</div>
 </div></footer>
 
+<script>
+/* 窄屏汉堡菜单 */
+(function(){
+  var t=document.getElementById("navToggle"), l=document.getElementById("navLinks");
+  if(!t||!l) return;
+  t.addEventListener("click",function(){
+    var open=t.getAttribute("aria-expanded")==="true";
+    t.setAttribute("aria-expanded",open?"false":"true");
+    l.classList.toggle("open",!open);
+  });
+  l.querySelectorAll("a").forEach(function(a){
+    a.addEventListener("click",function(){
+      t.setAttribute("aria-expanded","false");
+      l.classList.remove("open");
+    });
+  });
+  window.addEventListener("resize",function(){
+    if(window.innerWidth>760){ l.classList.remove("open"); t.setAttribute("aria-expanded","false"); }
+  });
+})();
+</script>
 </body>
 </html>

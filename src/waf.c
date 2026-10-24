@@ -522,9 +522,12 @@ int serve_static_file(int client_fd, http_request_t *req, waf_site_config_t *sit
             file = fopen(file_path, "rb");
         }
     }
-    if (!file && (!strncmp(path, "/images/", 8) || !strncmp(path, "/assets/", 8))) {
+    if (!file && (!strncmp(path, "/images/", 8) || !strncmp(path, "/assets/", 8) ||
+                  !strncmp(path, "/docs/", 6) || !strcmp(path, "/demo-login.html") ||
+                  !strcmp(path, "/demo-admin.html"))) {
         /* 站点 docroot 未命中共享静态资源（如 404 演示页引用的 logo）：
-         * 回退到 WAF_HOME/web 下查找，避免 404 页出现裂图 */
+         * 回退到 WAF_HOME/web 下查找，避免 404 页出现裂图。
+         * 文档页与只读演示后台同样走共享目录，便于多站点复用。 */
         snprintf(file_path, sizeof(file_path), "web%s", path);
         file = fopen(file_path, "rb");
     }

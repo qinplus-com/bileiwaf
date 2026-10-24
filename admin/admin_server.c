@@ -662,6 +662,11 @@ static const char *mime_of(const char *path) {
     if (!strcmp(e, ".svg"))  return "image/svg+xml";
     if (!strcmp(e, ".png"))  return "image/png";
     if (!strcmp(e, ".ico"))  return "image/x-icon";
+    if (!strcmp(e, ".txt"))  return "text/plain";
+    if (!strcmp(e, ".xml"))  return "application/xml";
+    if (!strcmp(e, ".md"))   return "text/markdown";
+    if (!strcmp(e, ".jpg") || !strcmp(e, ".jpeg")) return "image/jpeg";
+    if (!strcmp(e, ".webp")) return "image/webp";
     return "application/octet-stream";
 }
 
@@ -2990,6 +2995,17 @@ static void handle_client(int fd, const char *client_ip, int on_admin_plane) {
     }
     /* docroot 下的其他静态资源 */
     if (!strncmp(path, "/assets/", 8) || !strncmp(path, "/images/", 8)) {
+        serve_static(fd, path + 1);
+        return;
+    }
+    /* 文档页（使用手册 / 安装手册）与只读演示后台 */
+    if (!strncmp(path, "/docs/", 6)) {
+        serve_static(fd, path + 1);
+        return;
+    }
+    if (!strcmp(path, "/demo-login.html") || !strcmp(path, "/demo-admin.html") ||
+        !strcmp(path, "/showcase.html") || !strcmp(path, "/404.html") ||
+        !strcmp(path, "/robots.txt") || !strcmp(path, "/sitemap.xml")) {
         serve_static(fd, path + 1);
         return;
     }

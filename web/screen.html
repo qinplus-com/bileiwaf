@@ -77,6 +77,12 @@ header{height:72px;display:flex;align-items:center;position:relative;flex:none}
 .nav-link{color:var(--muted);text-decoration:none;font-size:12px;letter-spacing:2px;
   padding:5px 13px;border:1px solid var(--line);border-radius:20px;transition:.2s}
 .nav-link:hover{color:var(--cyan);border-color:rgba(53,224,200,.4)}
+@media(max-width:900px){
+  .h-right .nav-link{font-size:11px;padding:4px 10px}
+}
+@media(max-width:520px){
+  .h-right .nav-link{font-size:10.5px;padding:3px 8px;letter-spacing:1px}
+}
 
 /* ---------- 统计卡 ---------- */
 .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;height:96px;margin:4px 0 10px;flex:none}
@@ -216,6 +222,10 @@ footer b{color:#a8c6ee;font-weight:600}
       <div class="badge"><span class="dot"></span><span id="badgeUp">已持续防护 —</span></div>
       <div id="clock">--:--:--<small id="dateStr">----</small></div>
       <a class="nav-link" href="/">返回首页</a>
+      <a class="nav-link" href="/report.html">测试报告</a>
+      <a class="nav-link" href="/docs/usage.html">使用手册</a>
+      <a class="nav-link" href="/docs/install.html">安装手册</a>
+      <a class="nav-link" href="/demo-login.html">后台演示</a>
     </div>
   </header>
 

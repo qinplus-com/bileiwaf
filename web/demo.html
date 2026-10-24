@@ -29,6 +29,25 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang S
 .nav-links a:hover{color:var(--cyan);background:rgba(53,224,200,.08)}
 .nav-links .cta{background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff!important;font-weight:600}
 .nav-links .cta:hover{filter:brightness(1.15)}
+/* 窄屏汉堡菜单 */
+.nav-toggle{display:none;margin-left:auto;width:42px;height:40px;flex-direction:column;justify-content:center;gap:5px;
+  padding:0 11px;background:rgba(53,224,200,.06);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.nav-toggle span{display:block;height:2px;border-radius:2px;background:var(--txt);transition:.25s}
+.nav-toggle[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-toggle[aria-expanded="true"] span:nth-child(2){opacity:0}
+.nav-toggle[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+@media(max-width:820px){
+  .nav-in{height:64px;padding:0 16px}
+  .nav-toggle{display:flex}
+  .nav-links{position:absolute;left:0;right:0;top:100%;flex-direction:column;align-items:stretch;gap:0;margin:0;
+    padding:8px 16px 14px;background:rgba(9,15,27,.985);border-bottom:1px solid var(--line);
+    box-shadow:0 18px 40px rgba(0,0,0,.5);max-height:0;overflow:hidden;opacity:0;pointer-events:none;
+    transition:max-height .28s ease,opacity .2s}
+  .nav-links.open{max-height:78vh;overflow-y:auto;opacity:1;pointer-events:auto}
+  .nav-links a{padding:11px 12px;font-size:14.5px;white-space:normal}
+  .nav-links .cta{margin-top:6px;text-align:center}
+  .nav-logo img{width:150px;height:44px}
+}
 .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
 header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:22px}
 .brand{display:flex;align-items:center;gap:14px}
@@ -79,10 +98,16 @@ footer .code{margin-top:8px}
 <body>
 <nav class="nav"><div class="nav-in">
   <a class="nav-logo" href="/"><img src="/images/bileiwaf_logo.png" alt="壁垒WAF"></a>
-  <div class="nav-links">
+  <button class="nav-toggle" id="navToggle" aria-label="展开菜单" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
     <a href="/">网站首页</a>
     <a href="/screen.html">大屏演示</a>
     <a href="/report.html">测试报告</a>
+    <a href="/docs/usage.html">使用手册</a>
+    <a href="/docs/install.html">安装手册</a>
+    <a href="/demo-login.html">后台演示</a>
     <a class="cta" href="/demo">攻防演示</a>
   </div>
 </div></nav>
@@ -338,6 +363,27 @@ async function loadInfo(){
 }
 loadInfo(); setInterval(loadInfo,5000);
 fetch('/demo/api/info').catch(function(){});
+</script>
+<script>
+/* 窄屏汉堡菜单 */
+(function(){
+  var t=document.getElementById("navToggle"), l=document.getElementById("navLinks");
+  if(!t||!l) return;
+  t.addEventListener("click",function(){
+    var open=t.getAttribute("aria-expanded")==="true";
+    t.setAttribute("aria-expanded",open?"false":"true");
+    l.classList.toggle("open",!open);
+  });
+  l.querySelectorAll("a").forEach(function(a){
+    a.addEventListener("click",function(){
+      t.setAttribute("aria-expanded","false");
+      l.classList.remove("open");
+    });
+  });
+  window.addEventListener("resize",function(){
+    if(window.innerWidth>820){ l.classList.remove("open"); t.setAttribute("aria-expanded","false"); }
+  });
+})();
 </script>
 </body>
 </html>

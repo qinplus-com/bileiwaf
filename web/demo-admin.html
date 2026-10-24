@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台（只读演示） - 壁垒WAF</title>
+<meta name="description" content="壁垒WAF 管理后台在线演示：监控大屏、攻击日志、站点管理、证书管理、规则文件、端口配置与系统设置，全部为只读虚拟数据。">
+<meta name="keywords" content="壁垒WAF,管理后台,WAF控制台,在线演示,监控大屏">
+<meta name="author" content="内蒙古勤加软件有限公司">
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://demo.bileiwaf.com/demo-admin.html">
+<link rel="icon" href="/images/bileiwaf_logo.png" type="image/png">
+<style>
+:root{
+  --bg:#070d1a; --bg2:#0b1220; --panel:#0f1c33; --panel2:#0c1526;
+  --line:#1c2f4d; --line2:#27436e; --ink:#e2ecfb; --muted:#8397b3;
+  --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c; --amber:#ffb454;
+  --purple:#9d7bff; --green:#4ade80;
+  --sb-w:238px; --top-h:60px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.6;overflow-x:hidden;min-height:100vh}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- 只读横幅 ---------- */
+.banner{position:fixed;left:0;right:0;top:0;height:30px;z-index:60;display:flex;align-items:center;
+  justify-content:center;gap:8px;font-size:12px;letter-spacing:.5px;
+  background:linear-gradient(90deg,rgba(255,180,84,.16),rgba(255,93,108,.14));
+  border-bottom:1px solid rgba(255,180,84,.28);color:#f2d5a4;white-space:nowrap;overflow:hidden;padding:0 12px}
+.banner b{color:var(--amber)}
+.banner .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);
+  box-shadow:0 0 8px var(--amber);animation:blink 2.4s infinite}
+@keyframes blink{50%{opacity:.35}}
+
+/* ---------- 侧边栏 ---------- */
+.sidebar{position:fixed;left:0;top:30px;bottom:0;width:var(--sb-w);z-index:50;
+  background:var(--panel2);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;transition:transform .28s ease}
+.sb-brand{display:flex;align-items:center;gap:10px;padding:16px 18px 14px;border-bottom:1px solid var(--line)}
+.sb-brand img{height:30px;width:auto;max-width:150px;object-fit:contain}
+.sb-brand div{line-height:1.25}
+.sb-brand b{font-size:14px;letter-spacing:1px;display:block}
+.sb-brand small{font-size:9px;color:var(--muted);letter-spacing:2px}
+.sb-nav{flex:1;overflow-y:auto;padding:12px 10px}
+.sb-h{font-size:10px;letter-spacing:2.5px;color:var(--muted);padding:6px 10px 8px}
+.sb-nav a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;
+  font-size:13.5px;color:#a9bbd4;margin-bottom:2px;transition:.18s;border-left:2px solid transparent}
+.sb-nav a .ic{width:18px;text-align:center;opacity:.9;font-size:14px}
+.sb-nav a:hover{background:rgba(77,163,255,.09);color:var(--ink)}
+.sb-nav a.on{background:rgba(53,224,200,.11);color:var(--cyan);border-left-color:var(--cyan)}
+.sb-user{padding:12px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.sb-user b{color:var(--ink)}
+.demo-chip{display:inline-block;font-size:9.5px;padding:1px 6px;border-radius:6px;margin-left:5px;
+  border:1px solid rgba(255,180,84,.4);color:var(--amber)}
+.sb-acts{display:flex;gap:8px;margin-top:9px}
+.sb-acts button{flex:1;padding:6px 0;font-size:12px;border-radius:7px;border:1px solid var(--line);
+  background:rgba(77,163,255,.06);color:#b9cbe3;transition:.2s}
+.sb-acts button:hover{border-color:var(--line2);color:var(--ink)}
+.sb-foot{padding:10px 16px 14px;font-size:10.5px;color:#63748f;letter-spacing:.5px;line-height:1.7;border-top:1px solid var(--line)}
+.sb-foot b{color:var(--cyan)}
+
+/* ---------- 主区 ---------- */
+.main{margin-left:var(--sb-w);padding-top:30px;min-height:100vh}
+.topbar{position:sticky;top:30px;z-index:40;height:var(--top-h);display:flex;align-items:center;gap:12px;
+  padding:0 22px;background:rgba(7,13,26,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.burger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--line);
+  background:rgba(77,163,255,.06);color:var(--ink);font-size:16px;line-height:1}
+.topbar .title{font-size:16px;font-weight:600;letter-spacing:.5px}
+.ro-pill{margin-left:auto;font-size:11px;padding:4px 11px;border-radius:999px;
+  border:1px solid rgba(255,180,84,.4);background:rgba(255,180,84,.10);color:var(--amber);white-space:nowrap}
+.topbar .btn{padding:6px 13px;font-size:12.5px;border-radius:8px;border:1px solid var(--line);
+  background:rgba(77,163,255,.06);color:#c3d4ea;transition:.2s;white-space:nowrap}
+.topbar .btn:hover{border-color:var(--line2);color:#fff}
+.content{padding:20px 22px 60px;max-width:1500px}
+.page{display:none;animation:fade .25s ease}
+.page.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* 面板 */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px 18px;margin-bottom:16px}
+.panel h3{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.panel h3::before{content:"";width:3px;height:14px;border-radius:2px;background:var(--cyan)}
+.panel h3 small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:.5px}
+.hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.7}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+
+/* 统计卡 */
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.card{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:14px 16px}
+.card::before{content:"";position:absolute;left:0;top:16%;bottom:16%;width:3px;border-radius:2px;background:var(--c,var(--blue))}
+.card .l{font-size:11.5px;color:var(--muted);letter-spacing:1px}
+.card .v{font-size:clamp(19px,2vw,26px);font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--c,var(--blue));line-height:1.25;margin-top:4px}
+.card .s{font-size:10.5px;color:#63748f;margin-top:2px}
+
+/* 图表 */
+.chart{width:100%;height:170px;display:block}
+.legend{display:flex;gap:16px;font-size:11.5px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+
+/* TOP 规则 */
+.bars{display:flex;flex-direction:column;gap:11px;margin-top:4px}
+.bar-row{display:grid;grid-template-columns:104px 1fr 54px;align-items:center;gap:10px;font-size:12.5px}
+.bar-row .nm{color:#b9cbe3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{height:8px;border-radius:5px;background:rgba(77,163,255,.10);overflow:hidden}
+.bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+.bar-row .pc{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* 表格 */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:12.8px;min-width:640px}
+th{text-align:left;padding:9px 11px;color:#a9bbd4;font-weight:600;background:rgba(77,163,255,.08);
+  border-bottom:1px solid var(--line2);white-space:nowrap}
+td{padding:8px 11px;border-bottom:1px solid rgba(28,47,77,.7);color:#cfdcef;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:rgba(53,224,200,.05)}
+.mono{font-family:Menlo,Consolas,monospace;font-size:12px;color:#a9c4e4}
+.path{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{display:inline-block;font-size:10.5px;padding:1.5px 8px;border-radius:6px;line-height:1.6;
+  border:1px solid transparent;white-space:nowrap}
+.tag.red{color:#ff8b96;background:rgba(255,93,108,.12);border-color:rgba(255,93,108,.3)}
+.tag.blue{color:#8dc0ff;background:rgba(77,163,255,.12);border-color:rgba(77,163,255,.3)}
+.tag.cyan{color:#6ff0df;background:rgba(53,224,200,.12);border-color:rgba(53,224,200,.3)}
+.tag.amber{color:#ffcb85;background:rgba(255,180,84,.12);border-color:rgba(255,180,84,.3)}
+.tag.green{color:#7ee2a8;background:rgba(74,222,128,.12);border-color:rgba(74,222,128,.3)}
+.tag.gray{color:#93a5bf;background:rgba(131,151,179,.10);border-color:rgba(131,151,179,.28)}
+
+/* 工具条 */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar select,.toolbar input{height:33px;background:rgba(8,14,26,.9);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font-size:12.5px;padding:0 10px;outline:none;font-family:inherit}
+.toolbar select:focus,.toolbar input:focus{border-color:var(--blue)}
+.toolbar .btn{height:33px;padding:0 14px;border-radius:8px;border:1px solid var(--line);
+  background:rgba(77,163,255,.10);color:#c3d4ea;font-size:12.5px;transition:.2s}
+.toolbar .btn:hover{border-color:var(--line2);color:#fff}
+.toolbar .sp{flex:1}
+.toolbar .ro{font-size:11px;color:var(--amber);border:1px dashed rgba(255,180,84,.35);
+  padding:3px 8px;border-radius:6px;white-space:nowrap}
+
+/* 表单（只读） */
+.formrow{margin-bottom:11px}
+.formrow label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;letter-spacing:.5px}
+.formrow input,.formrow select{width:100%;height:35px;background:rgba(8,14,26,.6);
+  border:1px solid var(--line);border-radius:8px;color:#a9bbd4;font-size:12.8px;padding:0 11px;outline:none;
+  font-family:inherit;cursor:not-allowed}
+.btn-ro{width:100%;height:36px;margin-top:8px;border-radius:8px;border:1px dashed var(--line2);
+  background:rgba(131,151,179,.08);color:#8397b3;font-size:12.5px;letter-spacing:1px;cursor:not-allowed}
+
+/* 分页 */
+.pager{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.pager button{padding:5px 12px;border-radius:7px;border:1px solid var(--line);
+  background:rgba(77,163,255,.06);color:#b9cbe3;font-size:12px}
+.pager button:disabled{opacity:.45;cursor:not-allowed}
+
+/* 时间线 */
+.timeline{display:flex;flex-direction:column;gap:8px;max-height:250px;overflow-y:auto;padding-right:4px}
+.tl-item{display:grid;grid-template-columns:66px 1fr;gap:10px;font-size:12.3px;
+  padding:7px 10px;border-radius:8px;background:rgba(77,163,255,.05);border-left:2px solid var(--red)}
+.tl-item .t{color:var(--muted);font-variant-numeric:tabular-nums}
+.tl-item .d{color:#cfdcef;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-item .d b{color:#ff9aa3;font-weight:600}
+
+/* 键值列表 */
+.kv{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;font-size:12.8px}
+.kv dt{color:var(--muted)}
+.kv dd{color:#cfdcef;word-break:break-all}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:200;
+  padding:11px 20px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;
+  background:rgba(15,28,51,.97);border:1px solid rgba(255,180,84,.45);color:#f2d5a4;
+  box-shadow:0 14px 40px rgba(0,0,0,.55);max-width:calc(100vw - 32px);text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+.scrim{display:none;position:fixed;inset:0;background:rgba(3,7,15,.6);z-index:45}
+.scrim.on{display:block}
+
+/* ---------- 响应式 ---------- */
+@media(max-width:1180px){
+  .cards{grid-template-columns:repeat(3,1fr)}
+  .grid2{grid-template-columns:1fr}
+  .grid3{grid-template-columns:1fr 1fr}
+}
+@media(max-width:900px){
+  :root{--sb-w:0px}
+  .sidebar{width:250px;transform:translateX(-100%);box-shadow:0 0 40px rgba(0,0,0,.5)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .burger{display:block}
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .grid3{grid-template-columns:1fr}
+  .content{padding:16px 14px 48px}
+  .topbar{padding:0 14px;gap:8px}
+  .topbar .title{font-size:14.5px}
+  .ro-pill{font-size:10px;padding:3px 8px}
+  .topbar .btn{padding:5px 9px;font-size:11.5px}
+}
+@media(max-width:560px){
+  .cards{grid-template-columns:1fr 1fr;gap:9px}
+  .card{padding:11px 12px}
+  .card .v{font-size:19px}
+  .banner{font-size:10.5px;gap:5px;letter-spacing:0}
+  .banner .full{display:none}
+  .topbar .btn.hide-xs{display:none}
+  .panel{padding:13px 12px}
+  .kv{grid-template-columns:1fr;gap:2px 0}
+  .kv dt{margin-top:6px}
+  .bar-row{grid-template-columns:82px 1fr 42px;font-size:11.5px}
+}
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <span class="dot"></span>
+  <b>演示环境 · 只读模式</b>
+  <span class="full">— 页面数据均为虚拟样例，所有管理操作已禁用，不会修改任何配置</span>
+</div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <img src="/images/bileiwaf_logo.png" alt="壁垒WAF">
+    <div><b>壁垒WAF</b><small>BILEIWAF CONSOLE</small></div>
+  </div>
+  <nav class="sb-nav" id="nav">
+    <div class="sb-h">管理菜单</div>
+    <a data-p="ov" class="on"><span class="ic">◉</span>监控大屏</a>
+    <a data-p="logs"><span class="ic">⎔</span>攻击日志</a>
+    <a data-p="sites"><span class="ic">⌂</span>站点管理</a>
+    <a data-p="certs"><span class="ic">⎋</span>证书管理</a>
+    <a data-p="rules"><span class="ic">☰</span>规则文件</a>
+    <a data-p="conf"><span class="ic">⚙</span>端口配置</a>
+    <a data-p="sys"><span class="ic">▣</span>系统设置</a>
+  </nav>
+  <div class="sb-user">
+    当前用户 <b>demo</b><span class="demo-chip">演示</span>
+    <div class="sb-acts">
+      <button data-deny="修改密码">修改密码</button>
+      <button id="btn_out">退出</button>
+    </div>
+  </div>
+  <div class="sb-foot">© 2026 <b>内蒙古勤加软件有限公司</b><br>壁垒WAF BILEIWAF <span>v1.0.5</span></div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<main class="main">
+  <div class="topbar">
+    <button class="burger" id="burger" aria-label="打开菜单">☰</button>
+    <div class="title" id="curTitle">监控大屏</div>
+    <span class="ro-pill">只读演示</span>
+    <a class="btn hide-xs" href="/docs/usage.html">使用手册</a>
+    <a class="btn" href="/">返回官网</a>
+  </div>
+
+  <div class="content">
+
+    <!-- ===== 监控大屏 ===== -->
+    <section class="page on" id="p-ov">
+      <div class="cards">
+        <div class="card" style="--c:#ff5d6c"><div class="l">今日攻击</div><div class="v">1,284</div><div class="s">较昨日 +12.6%</div></div>
+        <div class="card" style="--c:#ffb454"><div class="l">本月拦截</div><div class="v">36,921</div><div class="s">拦截率 63.2%</div></div>
+        <div class="card" style="--c:#9d7bff"><div class="l">本月攻击</div><div class="v">58,442</div><div class="s">自然月统计</div></div>
+        <div class="card" style="--c:#4da3ff"><div class="l">本月请求</div><div class="v">2,147,830</div><div class="s">自然月统计</div></div>
+        <div class="card" style="--c:#35e0c8"><div class="l">实时 QPS</div><div class="v">86</div><div class="s">峰值 412</div></div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <h3>攻击趋势 <small>近 24 小时</small></h3>
+          <svg class="chart" id="trend" viewBox="0 0 640 170" preserveAspectRatio="none"></svg>
+          <div class="legend">
+            <span><i style="background:#ff5d6c"></i>攻击请求</span>
+            <span><i style="background:#4da3ff"></i>拦截请求</span>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>命中规则 TOP5 <small>本月</small></h3>
+          <div class="bars" id="topRules"></div>
+          <div class="hint">规则引擎先行判定，未命中流量交由 AI 双通道模型复核。</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <h3>实时攻击流 <small>滚动展示最新拦截事件</small></h3>
+          <div class="timeline" id="feed"></div>
+        </div>
+        <div class="panel">
+          <h3>防护节点状态</h3>
+          <dl class="kv">
+            <dt>数据平面</dt><dd><span class="tag green">运行中</span> bin/bileiwaf · 8 线程 · PID 2418</dd>
+            <dt>管理平面</dt><dd><span class="tag green">运行中</span> bin/bileiwaf-admin · 端口 19000</dd>
+            <dt>检测模式</dt><dd><span class="tag cyan">auto</span> 级联：规则优先，未命中走 AI</dd>
+            <dt>规则规模</dt><dd>1,087 条 · 8 个规则文件</dd>
+            <dt>AI 模型</dt><dd>ai_cnn.dat / ai_ae.dat / ai_fusion.dat</dd>
+            <dt>连续防护</dt><dd>27 天 14 小时</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 攻击日志 ===== -->
+    <section class="page" id="p-logs">
+      <div class="panel">
+        <div class="toolbar">
+          <select id="f_type"><option value="">全部类型</option></select>
+          <select id="f_action"><option value="">全部动作</option><option value="block">拦截 block</option><option value="log">记录 log</option></select>
+          <input id="f_ip" placeholder="攻击源 IP" style="width:130px">
+          <input id="f_q" placeholder="关键词（路径/规则）" style="width:170px">
+          <button class="btn" id="f_go">查询</button>
+          <button class="btn" id="f_reset">重置</button>
+          <span class="sp"></span>
+          <span class="ro">演示数据 · 只读</span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th style="width:138px">时间</th><th style="width:74px">等级</th><th style="width:104px">类型</th>
+              <th style="width:120px">规则</th><th style="width:62px">动作</th><th style="width:118px">来源 IP</th><th>路径 / 载荷</th></tr></thead>
+            <tbody id="lg_rows"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span id="lg_total"></span>
+          <span class="sp" style="flex:1"></span>
+          <button id="lg_prev">上一页</button>
+          <span id="lg_page">1</span>
+          <button id="lg_next">下一页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 站点管理 ===== -->
+    <section class="page" id="p-sites">
+      <div class="grid2" style="grid-template-columns:1fr 340px">
+        <div class="panel">
+          <h3>已接入站点 <small>config/sites/*.conf</small></h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>配置文件</th><th>域名</th><th>后端</th><th>HTTPS</th><th>状态</th></tr></thead>
+              <tbody id="st_rows"></tbody>
+            </table>
+          </div>
+          <div class="hint">生产环境：保存站点后需重载或重启 WAF 生效；删除前请确认业务已迁移。</div>
+        </div>
+        <div class="panel">
+          <h3>新增 / 更新站点</h3>
+          <div class="formrow"><label>保护域名</label><input value="app.example.com" readonly disabled></div>
+          <div class="formrow"><label>后端地址</label><input value="127.0.0.1" readonly disabled></div>
+          <div class="formrow"><label>后端端口</label><input value="9000" readonly disabled></div>
+          <div class="formrow"><label>文档根目录</label><input value="share" readonly disabled></div>
+          <div class="formrow"><label>启用 HTTPS</label>
+            <select disabled><option>自动生成自签证书</option></select></div>
+          <div class="formrow"><label>证书有效期</label><input value="365" readonly disabled></div>
+          <button class="btn-ro" data-deny="保存站点">保存站点并生成证书</button>
+          <div class="hint">演示环境表单为只读示例，实际后台支持在线新增 / 更新 / 删除站点并自动签发证书。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 证书管理 ===== -->
+    <section class="page" id="p-certs">
+      <div class="panel">
+        <h3>证书列表 <small>certs/*.pem</small></h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>域名</th><th>签发者</th><th>有效期至</th><th style="width:96px">剩余</th>
+              <th style="width:96px">自动续期</th><th style="width:86px">状态</th></tr></thead>
+            <tbody id="ct_rows"></tbody>
+          </table>
+        </div>
+        <div class="hint">到期前 30 天自动续期（ACME / 自签）；演示数据为虚拟样例。</div>
+      </div>
+    </section>
+
+    <!-- ===== 规则文件 ===== -->
+    <section class="page" id="p-rules">
+      <div class="panel">
+        <h3>规则文件 <small>rules/*.rules · rules/*.ip</small><span style="margin-left:auto" class="tag cyan">共 1,087 条</span></h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>文件</th><th style="width:180px">状态</th><th style="width:90px">条数</th>
+              <th style="width:96px">大小</th><th style="width:150px">更新时间</th></tr></thead>
+            <tbody id="rl_rows"></tbody>
+          </table>
+        </div>
+        <div class="hint">IP 黑名单支持静态条目（blacklist.ip）与 CC 联动动态拉黑（内存表，到期自动解封）。白名单 IP 优先豁免。</div>
+      </div>
+    </section>
+
+    <!-- ===== 端口配置 ===== -->
+    <section class="page" id="p-conf">
+      <div class="grid2">
+        <div class="panel">
+          <h3>监听端口</h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th style="width:96px">端口</th><th>协议</th><th>用途</th><th style="width:80px">状态</th></tr></thead>
+              <tbody id="pt_rows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>检测与防护参数</h3>
+          <dl class="kv">
+            <dt>检测模式</dt><dd><span class="tag cyan">auto</span> 规则 + AI 级联</dd>
+            <dt>CC 防护</dt><dd><span class="tag green">启用</span></dd>
+            <dt>CC 阈值</dt><dd>60 次 / 60 秒</dd>
+            <dt>CC 封禁时长</dt><dd>300 秒（人机验证站点优先挑战）</dd>
+            <dt>自动拉黑</dt><dd><span class="tag green">启用</span> 动态黑名单 600 秒后自动解封</dd>
+            <dt>请求体上限</dt><dd>10 MB</dd>
+            <dt>连接超时</dt><dd>30 秒</dd>
+            <dt>工作线程</dt><dd>64</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 系统设置 ===== -->
+    <section class="page" id="p-sys">
+      <div class="grid2">
+        <div class="panel">
+          <h3>系统信息</h3>
+          <dl class="kv">
+            <dt>产品版本</dt><dd>壁垒WAF v1.0.5</dt>
+            <dt>数据平面</dt><dd class="mono">bin/bileiwaf</dd>
+            <dt>管理平面</dt><dd class="mono">bin/bileiwaf-admin</dd>
+            <dt>运行时长</dt><dd>27 天 14 小时</dd>
+            <dt>主机名</dt><dd class="mono">waf-demo-node-01</dd>
+            <dt>系统</dt><dd>Linux 4.18 x86_64</dt>
+            <dt>内存占用</dt><dd>184 MB / 8 GB</dd>
+            <dt>日志目录</dt><dd class="mono">logs/（waf-attack.log、waf-access.log）</dt>
+          </dl>
+        </div>
+        <div class="panel">
+          <h3>安全设置</h3>
+          <dl class="kv">
+            <dt>管理员账号</dt><dd>admin（密码随机盐 + SHA-256 存储）</dd>
+            <dt>登录保护</dt><dd>连续失败触发 429 限流</dd>
+            <dt>会话鉴权</dt><dd><span class="tag green">启用</span></dd>
+            <dt>日志轮转</dt><dd>单文件 50 MB · 保留 30 天</dd>
+            <dt>GeoIP 定位</dt><dd>GeoLite2-City.mmdb</dd>
+            <dt>规则热加载</dt><dd><span class="mono">./waf reload</span></dd>
+          </dl>
+          <div class="hint">演示环境不提供配置修改、账号管理等写操作。</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+
+  /* ---------- Toast ---------- */
+  var toastTimer=null;
+  function toast(msg){
+    var t=$("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ t.classList.remove("show"); },2200);
+  }
+  /* 所有写操作统一拦截 */
+  document.addEventListener("click",function(e){
+    var el=e.target.closest("[data-deny]");
+    if(el){
+      e.preventDefault();
+      toast("演示环境为只读模式，「"+el.getAttribute("data-deny")+"」操作已禁用");
+    }
+  });
+
+  /* ---------- 菜单切换 ---------- */
+  var TITLES={ov:"监控大屏",logs:"攻击日志",sites:"站点管理",certs:"证书管理",rules:"规则文件",conf:"端口配置",sys:"系统设置"};
+  function go(p){
+    $$(".page").forEach(function(s){ s.classList.toggle("on",s.id==="p-"+p); });
+    $$("#nav a").forEach(function(a){ a.classList.toggle("on",a.getAttribute("data-p")===p); });
+    $("curTitle").textContent=TITLES[p]||"监控大屏";
+    closeSidebar();
+    window.scrollTo({top:0,behavior:"smooth"});
+    if(p==="logs") renderLogs();
+  }
+  $$("#nav a").forEach(function(a){ a.onclick=function(){ go(a.getAttribute("data-p")); }; });
+
+  /* ---------- 侧边栏（窄屏抽屉） ---------- */
+  function closeSidebar(){ $("sidebar").classList.remove("open"); $("scrim").classList.remove("on"); }
+  $("burger").onclick=function(){ $("sidebar").classList.add("open"); $("scrim").classList.add("on"); };
+  $("scrim").onclick=closeSidebar;
+  window.addEventListener("keydown",function(e){ if(e.key==="Escape") closeSidebar(); });
+  window.addEventListener("resize",function(){ if(window.innerWidth>900) closeSidebar(); });
+
+  /* ---------- 退出 ---------- */
+  $("btn_out").onclick=function(){ try{sessionStorage.removeItem("waf_demo_login")}catch(e){} location.href="/demo-login.html"; };
+
+  /* ---------- 趋势图 ---------- */
+  (function(){
+    var atk=[30,42,38,55,48,36,28,34,52,68,74,62,58,66,82,96,88,72,64,58,74,92,110,86];
+    var blk=[22,30,27,41,36,25,19,24,38,52,58,47,44,50,63,74,68,55,48,43,56,71,86,66];
+    var W=640,H=170,PL=34,PB=22,PT=12,PR=10;
+    var max=120, n=atk.length;
+    var sx=function(i){ return PL+(W-PL-PR)*i/(n-1); };
+    var sy=function(v){ return PT+(H-PT-PB)*(1-v/max); };
+    var line=function(arr){
+      return arr.map(function(v,i){ return (i?"L":"M")+sx(i).toFixed(1)+","+sy(v).toFixed(1); }).join(" ");
+    };
+    var area=line(atk)+" L"+sx(n-1).toFixed(1)+","+(H-PB)+" L"+sx(0).toFixed(1)+","+(H-PB)+" Z";
+    var grid="";
+    for(var g=0;g<=3;g++){
+      var y=sy(max*g/3).toFixed(1);
+      grid+='<line x1="'+PL+'" y1="'+y+'" x2="'+(W-PR)+'" y2="'+y+'" stroke="#1c2f4d" stroke-width="1"/>';
+      grid+='<text x="'+(PL-7)+'" y="'+(parseFloat(y)+3.5)+'" fill="#63748f" font-size="9" text-anchor="end">'+(max*g/3)+'</text>';
+    }
+    var labels="";
+    [0,6,12,18,23].forEach(function(i){
+      labels+='<text x="'+sx(i).toFixed(1)+'" y="'+(H-5)+'" fill="#63748f" font-size="9" text-anchor="middle">'+String(i).padStart(2,"0")+':00</text>';
+    });
+    $("trend").innerHTML=
+      '<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0%" stop-color="#ff5d6c" stop-opacity=".28"/>'+
+      '<stop offset="100%" stop-color="#ff5d6c" stop-opacity="0"/></linearGradient></defs>'+
+      grid+labels+
+      '<path d="'+area+'" fill="url(#ga)"/>'+
+      '<path d="'+line(atk)+'" fill="none" stroke="#ff5d6c" stroke-width="2" stroke-linejoin="round"/>'+
+      '<path d="'+line(blk)+'" fill="none" stroke="#4da3ff" stroke-width="1.8" stroke-dasharray="4 3" stroke-linejoin="round"/>';
+  })();
+
+  /* ---------- TOP 规则 ---------- */
+  (function(){
+    var data=[["SQL 注入",4128,41],["XSS 跨站脚本",2316,23],["命令注入",1612,16],["扫描器识别",1208,12],["路径穿越",806,8]];
+    $("topRules").innerHTML=data.map(function(d){
+      return '<div class="bar-row"><span class="nm">'+d[0]+'</span>'+
+        '<span class="bar-track"><span class="bar-fill" style="width:'+d[2]+'%"></span></span>'+
+        '<span class="pc">'+d[2]+'%</span></div>';
+    }).join("");
+  })();
+
+  /* ---------- 实时攻击流 ---------- */
+  (function(){
+    var feed=[
+      ["14:32:18","113.87.44.21","SQL 注入","/?id=1 UNION SELECT password"],
+      ["14:31:52","45.146.165.37","扫描器识别","/wp-login.php 扫描"],
+      ["14:31:07","92.118.39.84","XSS","/?q=<script>alert(1)<\/script>"],
+      ["14:30:41","116.31.118.6","命令注入","/ping?ip=127.0.0.1;cat /etc/passwd"],
+      ["14:29:55","185.220.101.9","路径穿越","/../../etc/shadow"],
+      ["14:29:22","104.248.50.87","SSRF","/fetch?url=http://169.254.169.254/"],
+      ["14:28:36","218.92.0.112","SQL 注入","/login user=admin' OR '1'='1"],
+      ["14:27:49","193.32.162.44","XXE","/xml 外部实体注入"]
+    ];
+    $("feed").innerHTML=feed.map(function(f){
+      return '<div class="tl-item"><span class="t">'+f[0]+'</span>'+
+        '<span class="d"><b>'+f[2]+'</b> · '+f[1]+' · '+f[3]+'</span></div>';
+    }).join("");
+  })();
+
+  /* ---------- 攻击日志 ---------- */
+  var LOGS=[];
+  (function(){
+    var types=[
+      ["SQL 注入","sql_injection.rules","High"],["XSS","xss.rules","High"],
+      ["命令注入","cmd_injection.rules","Critical"],["路径穿越","path_traversal.rules","High"],
+      ["扫描器识别","scanner.rules","Medium"],["SSRF","ssrf.rules","High"],["XXE","xxe.rules","High"],
+      ["文件上传","file_upload.rules","Critical"]
+    ];
+    var ips=["113.87.44.21","45.146.165.37","92.118.39.84","116.31.118.6","185.220.101.9",
+             "104.248.50.87","218.92.0.112","193.32.162.44","61.177.172.63","103.145.13.28"];
+    var paths=[
+      "/?id=1%20UNION%20SELECT%20password%20FROM%20users",
+      "/?q=<script>alert(document.cookie)<\/script>",
+      "/ping?ip=127.0.0.1;cat%20/etc/passwd",
+      "/../../../../etc/shadow",
+      "/wp-login.php",
+      "/fetch?url=http://169.254.169.254/latest/meta-data/",
+      "/xml?data=<!ENTITY%20xxe%20SYSTEM%20'file:///etc/passwd'>",
+      "/upload/shell.jsp;.jpg",
+      "/.env",
+      "/api/user?id=1%27%20OR%20%271%27=%271"
+    ];
+    var now=Date.now();
+    for(var i=0;i<42;i++){
+      var t=types[i%types.length];
+      var d=new Date(now-i*187000-((i*37)%60000));
+      var mm=String(d.getMonth()+1).padStart(2,"0"),dd=String(d.getDate()).padStart(2,"0");
+      var hh=String(d.getHours()).padStart(2,"0"),mi=String(d.getMinutes()).padStart(2,"0"),ss=String(d.getSeconds()).padStart(2,"0");
+      LOGS.push({
+        time:mm+"-"+dd+" "+hh+":"+mi+":"+ss,
+        level:t[2], type:t[0], rule:t[1],
+        action:(i%7===3)?"log":"block",
+        ip:ips[i%ips.length],
+        path:paths[i%paths.length]
+      });
+    }
+  })();
+  var logState={page:1,size:8};
+  function filtered(){
+    var ty=$("f_type").value, ac=$("f_action").value, ip=$("f_ip").value.trim(), q=$("f_q").value.trim().toLowerCase();
+    return LOGS.filter(function(r){
+      if(ty && r.type!==ty) return false;
+      if(ac && r.action!==ac) return false;
+      if(ip && r.ip.indexOf(ip)<0) return false;
+      if(q && (r.path.toLowerCase().indexOf(q)<0 && r.rule.toLowerCase().indexOf(q)<0)) return false;
+      return true;
+    });
+  }
+  function renderLogs(){
+    var rows=filtered(), total=rows.length, size=logState.size;
+    var pages=Math.max(1,Math.ceil(total/size));
+    if(logState.page>pages) logState.page=pages;
+    var start=(logState.page-1)*size;
+    var part=rows.slice(start,start+size);
+    var lvTag=function(l){
+      var c=l==="Critical"?"red":(l==="High"?"amber":"gray");
+      return '<span class="tag '+c+'">'+l+'</span>';
+    };
+    $("lg_rows").innerHTML=part.map(function(r){
+      return '<tr><td class="mono">'+r.time+'</td><td>'+lvTag(r.level)+'</td><td>'+r.type+'</td>'+
+        '<td class="mono">'+r.rule+'</td>'+
+        '<td>'+(r.action==="block"?'<span class="tag red">拦截</span>':'<span class="tag gray">记录</span>')+'</td>'+
+        '<td class="mono">'+r.ip+'</td><td class="path mono" title="'+r.path.replace(/"/g,"&quot;")+'">'+r.path.replace(/</g,"&lt;")+'</td></tr>';
+    }).join("") || '<tr><td colspan="7" style="text-align:center;color:#63748f;padding:22px">该筛选条件下暂无攻击记录</td></tr>';
+    $("lg_total").textContent="共 "+total+" 条 · 第 "+logState.page+"/"+pages+" 页";
+    $("lg_page").textContent=logState.page;
+    $("lg_prev").disabled=logState.page<=1;
+    $("lg_next").disabled=logState.page>=pages;
+  }
+  $("lg_prev").onclick=function(){ if(logState.page>1){ logState.page--; renderLogs(); } };
+  $("lg_next").onclick=function(){ logState.page++; renderLogs(); };
+  $("f_go").onclick=function(){ logState.page=1; renderLogs(); toast("演示数据查询完成（共 "+filtered().length+" 条）"); };
+  $("f_reset").onclick=function(){ $("f_type").value=""; $("f_action").value=""; $("f_ip").value=""; $("f_q").value=""; logState.page=1; renderLogs(); };
+
+  var typeSel=$("f_type");
+  ["SQL 注入","XSS","命令注入","路径穿越","扫描器识别","SSRF","XXE","文件上传"].forEach(function(t){
+    var o=document.createElement("option"); o.value=t; o.textContent=t; typeSel.appendChild(o);
+  });
+
+  /* ---------- 站点 ---------- */
+  (function(){
+    var sites=[
+      ["demo.local.conf","demo.bileiwaf.com","127.0.0.1:9000","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"],
+      ["dbask.cn.conf","dbask.cn, www.dbask.cn","10.0.2.15:8080","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"],
+      ["dbask.com.cn.conf","dbask.com.cn","10.0.2.16:8080","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"],
+      ["boxs.top.conf","boxs.top","10.0.3.21:3000","<span class='tag gray'>未启用</span>","<span class='tag green'>运行中</span>"],
+      ["wx.nm.cn.conf","wx.nm.cn","10.0.4.8:5000","<span class='tag green'>启用</span>","<span class='tag amber'>已停用</span>"]
+    ];
+    $("st_rows").innerHTML=sites.map(function(s){
+      return '<tr><td class="mono">'+s[0]+'</td><td>'+s[1]+'</td><td class="mono">'+s[2]+'</td><td>'+s[3]+'</td><td>'+s[4]+'</td></tr>';
+    }).join("");
+  })();
+
+  /* ---------- 证书 ---------- */
+  (function(){
+    var certs=[
+      ["demo.bileiwaf.com","Let's Encrypt R3","2027-01-18",86,"启用","有效"],
+      ["dbask.cn","Let's Encrypt R3","2026-12-02",39,"启用","有效"],
+      ["www.dbask.cn","Let's Encrypt R3","2026-12-02",39,"启用","有效"],
+      ["dbask.com.cn","DigiCert Global G2","2027-03-09",136,"启用","有效"],
+      ["wx.nm.cn","壁垒WAF 自签 CA","2026-11-14",21,"关闭","即将到期"]
+    ];
+    $("ct_rows").innerHTML=certs.map(function(c){
+      var st=c[5]==="有效"?"<span class='tag green'>有效</span>":"<span class='tag amber'>即将到期</span>";
+      var ar=c[4]==="启用"?"<span class='tag cyan'>自动</span>":"<span class='tag gray'>手动</span>";
+      return '<tr><td>'+c[0]+'</td><td>'+c[1]+'</td><td class="mono">'+c[2]+'</td><td>'+c[3]+' 天</td><td>'+ar+'</td><td>'+st+'</td></tr>';
+    }).join("");
+  })();
+
+  /* ---------- 规则文件 ---------- */
+  (function(){
+    var files=[
+      ["sql_injection.rules","检测规则","297","14.1 KB","2026-10-18 09:12"],
+      ["xss.rules","检测规则","41","1.9 KB","2026-10-18 09:12"],
+      ["cmd_injection.rules","检测规则","403","17.2 KB","2026-10-18 09:12"],
+      ["path_traversal.rules","检测规则","20","1.2 KB","2026-10-18 09:12"],
+      ["ssrf.rules","检测规则","181","9.2 KB","2026-10-18 09:12"],
+      ["xxe.rules","检测规则","120","6.1 KB","2026-10-18 09:12"],
+      ["file_upload.rules","检测规则","7","487 B","2026-10-18 09:12"],
+      ["scanner.rules","检测规则","18","750 B","2026-10-18 09:12"],
+      ["blacklist.ip","IP 黑名单","3","183 B","2026-10-21 16:40"],
+      ["whitelist.ip","IP 白名单","2","152 B","2026-10-20 11:05"]
+    ];
+    var tagOf=function(s){
+      if(s==="IP 黑名单") return "<span class='tag red'>IP 黑名单</span>";
+      if(s==="IP 白名单") return "<span class='tag blue'>IP 白名单</span>";
+      return "<span class='tag cyan'>检测规则</span>";
+    };
+    $("rl_rows").innerHTML=files.map(function(f){
+      return '<tr><td class="mono">'+f[0]+'</td><td>'+tagOf(f[1])+'</td><td>'+f[2]+'</td><td>'+f[3]+'</td><td class="mono">'+f[4]+'</td></tr>';
+    }).join("");
+  })();
+
+  /* ---------- 端口 ---------- */
+  (function(){
+    var ports=[
+      ["80","HTTP","业务流量接入（数据平面）","<span class='tag green'>监听中</span>"],
+      ["443","HTTPS","业务流量接入（TLS 终结）","<span class='tag green'>监听中</span>"],
+      ["19000","HTTP","管理后台 / 官网 / 演示页","<span class='tag green'>监听中</span>"],
+      ["9000","HTTP","默认后端（反代目标）","<span class='tag cyan'>内网</span>"]
+    ];
+    $("pt_rows").innerHTML=ports.map(function(p){
+      return '<tr><td class="mono">'+p[0]+'</td><td>'+p[1]+'</td><td>'+p[2]+'</td><td>'+p[3]+'</td></tr>';
+    }).join("");
+  })();
+
+  renderLogs();
+})();
+</script>
+</body>
+</html>
