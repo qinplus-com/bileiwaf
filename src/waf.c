@@ -9,6 +9,7 @@
 #include "../include/waf_ai.h"
 #include "../include/waf_ai_guard.h"
 #include "../include/waf_captcha.h"
+#include "../include/waf_blockpage.h"
 // #include "../include/waf_api.h"
 #include <signal.h>
 #include <sys/select.h>
@@ -26,6 +27,8 @@
 static waf_config_t global_config;
 static ai_config_t ai_config;
 static int running = 1;
+/* SIGHUP 置位，由 403 渲染路径消费：拦截页配置含文件读取，不在信号处理器内做 */
+static volatile sig_atomic_t g_blockpage_reload_pending = 0;
 static time_t waf_start_time = 0;
 static unsigned long request_count = 0;
 static unsigned long attack_count = 0;
@@ -146,6 +149,7 @@ static void signal_handler(int sig) {
          * 由请求线程在 rules_check_request / 连接处理安全点执行 */
         rules_request_reload();
         waf_ssl_request_reload();   /* 证书续期后热加载 SSL 上下文 */
+        g_blockpage_reload_pending = 1;  /* 403 拦截页/广告位配置热加载 */
     }
 }
 
@@ -493,6 +497,63 @@ static void waf_log_request(const char *ip, const char *method, const char *url,
     log_write_access(&al);
 }
 
+/* 构造 403 拦截响应。浏览器类客户端返回可配置拦截页（可挂广告位，站长收益），
+ * 显式只要 JSON/XML/纯文本的 API 客户端返回紧凑 JSON——广告页只应出现在
+ * 人工可感知的浏览场景，不能污染接口语义。 */
+static void fill_blocked_response(http_response_t *resp, http_request_t *req,
+                                  const char *ip, const char *rule, int keep_alive) {
+    resp->status_code = 403;
+    snprintf(resp->status_message, sizeof(resp->status_message), "Forbidden");
+    if (g_blockpage_reload_pending) {
+        g_blockpage_reload_pending = 0;
+        blockpage_reload();
+    }
+    http_set_header(resp, "X-Content-Type-Options", "nosniff");
+    http_set_header(resp, "Cache-Control", "no-store");
+    http_set_header(resp, "Referrer-Policy", "no-referrer");
+    http_set_connection_header(resp, keep_alive);
+
+    int want_html = 1;
+    char *acc = (char *)http_get_header(req->headers, "Accept");
+    if (acc) {
+        if (!strstr(acc, "text/html") &&
+            (strstr(acc, "application/json") || strstr(acc, "application/xml") ||
+             strstr(acc, "text/plain")))
+            want_html = 0;
+        free(acc);
+    }
+
+    if (!want_html) {
+        char safe[80];
+        int n = 0;
+        for (const char *p = rule ? rule : ""; *p && n < 64; p++)
+            if (isalnum((unsigned char)*p) || *p == '-' || *p == '_' || *p == '.')
+                safe[n++] = *p;
+        safe[n] = '\0';
+        char body[256];
+        int bl = snprintf(body, sizeof(body),
+                          "{\"blocked\":true,\"by\":\"BileiWAF\",\"rule\":\"%s\"}", safe);
+        http_set_header(resp, "Content-Type", "application/json; charset=UTF-8");
+        http_set_body(resp, body, (size_t)bl);
+        return;
+    }
+
+    /* 拦截页正文按请求渲染（含 IP/规则/URL），模板上限 32KB */
+    char *buf = malloc(32768);
+    if (buf) {
+        size_t n = blockpage_render(buf, 32768, ip, rule, req->url);
+        if (n > 0) {
+            http_set_header(resp, "Content-Type", "text/html; charset=UTF-8");
+            http_set_body(resp, buf, n);
+            free(buf);
+            return;
+        }
+        free(buf);
+    }
+    http_set_header(resp, "Content-Type", "text/html; charset=UTF-8");
+    http_set_body(resp, waf_blocked_html, strlen(waf_blocked_html));
+}
+
 int serve_static_file(int client_fd, http_request_t *req, waf_site_config_t *site, SSL *ssl, int is_https, int keep_alive) {
     const char *doc_root = (site && site->document_root[0]) ? site->document_root : "web";
     const char *path = req->path;
@@ -528,12 +589,8 @@ int serve_static_file(int client_fd, http_request_t *req, waf_site_config_t *sit
             /* 落到原有 404 流程：用原路径 fopen（必然失败），复用下方统一 404 响应 */
         } else {
             waf_log(LOG_LEVEL_WARN, "Path traversal blocked: %s (docroot=%s)", path, doc_root);
-            http_response_t deny_resp = {
-                .status_code = 403,
-                .status_message = "Forbidden"
-            };
-            http_set_body(&deny_resp, "<!DOCTYPE html><html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>", 104);
-            http_set_connection_header(&deny_resp, keep_alive);
+            http_response_t deny_resp = {0};
+            fill_blocked_response(&deny_resp, req, req->client_ip, "PATH-TRAVERSAL", keep_alive);
             if (is_https) {
                 char resp_buf[MAX_REQUEST_SIZE];
                 int resp_len = http_build_response(&deny_resp, resp_buf, sizeof(resp_buf));
@@ -1146,9 +1203,9 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
             log_write_attack(&log_entry);
 
             if (global_config.mode == WAF_MODE_BLOCKING) {
-                http_response_t blocked_resp = { .status_code = 403, .status_message = "Forbidden" };
-                http_set_body(&blocked_resp, waf_blocked_html, strlen(waf_blocked_html));
-                http_set_connection_header(&blocked_resp, keep_alive);
+                http_response_t blocked_resp = {0};
+                fill_blocked_response(&blocked_resp, &request, client_ip,
+                                      match.rule_id[0] ? match.rule_id : "UNKNOWN", keep_alive);
                 if (is_https) {
                     char resp_buf[MAX_REQUEST_SIZE];
                     int resp_len = http_build_response(&blocked_resp, resp_buf, sizeof(resp_buf));
@@ -1157,7 +1214,7 @@ int waf_process_connection(int client_fd, struct sockaddr_in *client_addr, int l
                     http_send_response(client_fd, &blocked_resp);
                 }
                 waf_log_request(client_ip, request.method, request.url, 403,
-                                (long)strlen(waf_blocked_html));
+                                (long)blocked_resp.body_len);
                 if (!keep_alive) break;
                 continue;
             }
@@ -1379,6 +1436,8 @@ int waf_init(waf_config_t *config) {
     };
     cc_init(&cc_config);
     captcha_init();
+    /* 403 拦截页（config/blockpage.conf）：自定义模板 + 广告位，失败自动回退极简页 */
+    blockpage_init();
 
     waf_sites_init(&global_config);
 
