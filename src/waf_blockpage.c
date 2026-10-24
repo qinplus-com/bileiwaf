@@ -98,8 +98,6 @@ static const char *BP_MODAL_TPL =
 "background:linear-gradient(160deg,#12233f,#0d1a2e);box-shadow:0 24px 64px rgba(0,0,0,.6)}\n"
 ".modal .brand{color:#22d3ee;font-weight:700;letter-spacing:2px;font-size:13px}\n"
 ".modal .site{color:#7fa6d0;font-size:12px;word-break:break-all;margin-top:2px}\n"
-".chip{display:inline-block;margin-top:10px;padding:2px 12px;border:1px solid #294260;border-radius:20px;"
-"font-size:11px;letter-spacing:2px;color:#8fb3d9}\n"
 ".modal .lead{margin:14px 0 0;font-size:15px;font-weight:600;color:#d8e4f5}\n"
 ".acts{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}\n"
 ".btn{flex:1;min-width:140px;text-align:center;padding:9px 14px;border-radius:9px;border:1px solid #22d3ee;"
@@ -111,7 +109,6 @@ static const char *BP_MODAL_TPL =
 "<div class=\"modal\" id=\"bwModal\" role=\"dialog\" aria-modal=\"true\" aria-label=\"{{title}}\">\n"
 "<div class=\"brand\">{{title}}</div>\n"
 "<div class=\"site\">{{site}}</div>\n"
-"<div class=\"chip\">403</div>\n"
 "<p class=\"lead\">网站安全防护，部署即生效</p>\n"
 "<div class=\"acts\">\n"
 "<a class=\"btn\" href=\"{{link}}\" rel=\"noopener\">访问 {{site}}</a>\n"
@@ -193,7 +190,7 @@ static void bp_build_verify(char *out, size_t outsz, const char *url) {
         bp_urlenc(url && url[0] ? url : "/", enc, sizeof(enc));
         snprintf(out, outsz,
             "<a class=\"btn ghost\" href=\"/waf-captcha?to=%s\" rel=\"noopener\">"
-            "继续浏览（需验证）</a>", enc);
+            "继续浏览</a>", enc);
     } else {
         snprintf(out, outsz,
             "<button class=\"btn ghost\" type=\"button\" onclick=\""
