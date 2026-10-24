@@ -541,7 +541,9 @@ static void fill_blocked_response(http_response_t *resp, http_request_t *req,
     /* 拦截页正文按请求渲染（含 IP/规则/URL），模板上限 32KB */
     char *buf = malloc(32768);
     if (buf) {
-        size_t n = blockpage_render(buf, 32768, ip, rule, req->url);
+        char *ua = (char *)http_get_header(req->headers, "User-Agent");
+        size_t n = blockpage_render(buf, 32768, ip, rule, req->url, ua);
+        free(ua);
         if (n > 0) {
             http_set_header(resp, "Content-Type", "text/html; charset=UTF-8");
             http_set_body(resp, buf, n);

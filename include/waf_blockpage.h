@@ -18,8 +18,9 @@ int blockpage_reload(void);
 
 /* 渲染拦截页；返回写入 out 的字节数，返回 0 表示不可用（调用方回退内置页）。
  * ip / rule / url 允许为 NULL，内部统一 HTML 转义，防止把攻击者可控的 URL
- * 反射进页面造成 XSS。 */
+ * 反射进页面造成 XSS。ua 用于广告投放判定：非浏览器 UA 不展示广告。 */
 size_t blockpage_render(char *out, size_t outsz,
-                        const char *ip, const char *rule, const char *url);
+                        const char *ip, const char *rule, const char *url,
+                        const char *ua);
 
 #endif

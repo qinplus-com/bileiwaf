@@ -24,6 +24,11 @@ typedef struct {
     char ad_iframe[BP_PATH_MAX];
     char ad_script_file[BP_PATH_MAX];   /* 第三方广告 JS 片段文件 */
     char template_path[BP_PATH_MAX];    /* 自定义模板文件，空则用内置模板 */
+    char style[16];                     /* simple=单卡片 | modal=品牌弹窗+广告层 */
+    char modal_title[160];              /* 弹窗标题，如 "BILEI WAF 提供技术服务" */
+    char modal_site[160];               /* 站点文案，如 "bileiwaf.com" */
+    char modal_link[BP_PATH_MAX];       /* 弹窗主按钮链接，如 https://bileiwaf.com */
+    int  ad_browser_only;               /* 1=仅浏览器 UA 展示广告（降低无效流量） */
 } bp_conf_t;
 
 static bp_conf_t   g_conf;
@@ -63,6 +68,55 @@ static const char *BP_DEFAULT_TPL =
 "<div class=\"meta\">来源 IP：<b>{{ip}}</b><br>命中规则：<b>{{rule}}</b><br>"
 "时间：<b>{{time}}</b></div>\n"
 "{{ad}}\n</div>\n</body>\n</html>";
+
+/* 弹窗式模板：广告铺在底层（.adlayer），品牌弹窗覆盖在上层（.modal）。
+ * 关闭弹窗后露出广告层；弹窗内保留实质说明文字，避免出现"纯广告页"。 */
+static const char *BP_MODAL_TPL =
+"<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"UTF-8\">\n"
+"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+"<meta name=\"robots\" content=\"noindex,nofollow\">\n"
+"<title>页面无法访问 · 壁垒WAF</title>\n<style>\n"
+"*{box-sizing:border-box}\n"
+"body{margin:0;min-height:100vh;background:#0b1220;color:#d8e4f5;"
+"font:14px/1.75 -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',"
+"'Microsoft YaHei',sans-serif}\n"
+".adlayer{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;"
+"justify-content:center;gap:14px;padding:24px}\n"
+".adlayer .hint{font-size:12px;color:#5f7590;letter-spacing:.5px}\n"
+".ad{text-align:center}\n.ad img{max-width:100%;border:0;border-radius:10px}\n"
+".ad iframe{width:100%;border:0}\n.ad .tag{margin-top:6px;font-size:11px;color:#5b6d85}\n"
+".mask{position:fixed;inset:0;background:rgba(4,10,20,.74);backdrop-filter:blur(2px)}\n"
+".modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(500px,92vw);"
+"padding:28px 26px;border:1px solid #1c2f4d;border-radius:16px;"
+"background:linear-gradient(160deg,#12233f,#0d1a2e);box-shadow:0 24px 64px rgba(0,0,0,.6)}\n"
+".modal .brand{color:#22d3ee;font-weight:700;letter-spacing:2px;font-size:13px}\n"
+".modal .site{color:#7fa6d0;font-size:12px;word-break:break-all}\n"
+".modal h1{margin:10px 0 8px;font-size:19px;font-weight:700}\n"
+".modal p{margin:0 0 10px;font-size:13px;color:#9fb3ca}\n"
+".modal ul{margin:0 0 12px;padding-left:18px;font-size:12px;color:#8296ad}\n"
+".meta{padding:11px 13px;background:#0f1e35;border-radius:8px;font-size:12px;color:#8fa6c2;"
+"word-break:break-all}\n.meta b{color:#c7d7ea;font-weight:600}\n"
+".acts{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}\n"
+".btn{flex:1;min-width:140px;text-align:center;padding:9px 14px;border-radius:9px;border:1px solid #22d3ee;"
+"background:#0f2b45;color:#9fe8f6;font-size:13px;text-decoration:none;cursor:pointer;"
+"font-family:inherit}\n.btn.ghost{border-color:#294260;background:transparent;color:#9fb3ca}\n"
+"</style>\n</head>\n<body>\n"
+"<div class=\"adlayer\">{{ad}}<div class=\"hint\">本站由 壁垒WAF 提供安全防护</div></div>\n"
+"<div class=\"mask\" id=\"bwMask\"></div>\n"
+"<div class=\"modal\" id=\"bwModal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"bwTitle\">\n"
+"<div class=\"brand\">{{title}}</div>\n"
+"<div class=\"site\">{{site}}</div>\n"
+"<h1 id=\"bwTitle\">页面无法访问</h1>\n"
+"<p>该请求未能正常打开，常见原因如下：</p>\n"
+"<ul><li>页面已删除、改名，或链接地址有误</li>"
+"<li>访问权限受限，需要登录或授权</li>"
+"<li>请求触发了本站安全防护策略（如异常参数、自动化扫描）</li></ul>\n"
+"<div class=\"meta\">来源 IP：<b>{{ip}}</b>　命中规则：<b>{{rule}}</b><br>时间：<b>{{time}}</b></div>\n"
+"<div class=\"acts\">\n"
+"<a class=\"btn\" href=\"{{link}}\" rel=\"noopener\">访问 {{site}}</a>\n"
+"<button class=\"btn ghost\" type=\"button\" onclick=\"document.getElementById('bwMask').style.display='none';"
+"document.getElementById('bwModal').style.display='none'\">继续浏览</button>\n"
+"</div>\n</div>\n</body>\n</html>";
 
 static const char *bp_home(void) {
     const char *h = getenv("WAF_HOME");
@@ -126,7 +180,12 @@ static int bp_load_conf(void) {
     memset(&g_conf, 0, sizeof(g_conf));
     g_conf.enabled = 0;
     g_conf.ad_enabled = 0;
+    g_conf.ad_browser_only = 1;
     snprintf(g_conf.ad_mode, sizeof(g_conf.ad_mode), "none");
+    snprintf(g_conf.style, sizeof(g_conf.style), "simple");
+    snprintf(g_conf.modal_title, sizeof(g_conf.modal_title), "%s", "BILEI WAF 提供技术服务");
+    snprintf(g_conf.modal_site, sizeof(g_conf.modal_site), "%s", "bileiwaf.com");
+    snprintf(g_conf.modal_link, sizeof(g_conf.modal_link), "%s", "https://bileiwaf.com");
 
     char path[1024];
     snprintf(path, sizeof(path), "%s/config/blockpage.conf", bp_home());
@@ -158,6 +217,11 @@ static int bp_load_conf(void) {
         else if (!strcmp(key, "ad_iframe"))      snprintf(g_conf.ad_iframe, sizeof(g_conf.ad_iframe), "%s", val);
         else if (!strcmp(key, "ad_script_file")) snprintf(g_conf.ad_script_file, sizeof(g_conf.ad_script_file), "%s", val);
         else if (!strcmp(key, "template"))       snprintf(g_conf.template_path, sizeof(g_conf.template_path), "%s", val);
+        else if (!strcmp(key, "style"))           snprintf(g_conf.style, sizeof(g_conf.style), "%s", val);
+        else if (!strcmp(key, "modal_title"))     snprintf(g_conf.modal_title, sizeof(g_conf.modal_title), "%s", val);
+        else if (!strcmp(key, "modal_site"))      snprintf(g_conf.modal_site, sizeof(g_conf.modal_site), "%s", val);
+        else if (!strcmp(key, "modal_link"))      snprintf(g_conf.modal_link, sizeof(g_conf.modal_link), "%s", val);
+        else if (!strcmp(key, "ad_browser_only")) g_conf.ad_browser_only = atoi(val);
     }
     fclose(fp);
     return 0;
@@ -226,11 +290,13 @@ static int bp_apply(void) {
             g_tpl_len = (size_t)n;
         } else {
             waf_log(LOG_LEVEL_WARN, "Block page template unreadable (%s), fallback to built-in", path);
-            snprintf(g_tpl, sizeof(g_tpl), "%s", BP_DEFAULT_TPL);
+            const char *tpl = strcmp(g_conf.style, "modal") == 0 ? BP_MODAL_TPL : BP_DEFAULT_TPL;
+            snprintf(g_tpl, sizeof(g_tpl), "%s", tpl);
             g_tpl_len = strlen(g_tpl);
         }
     } else {
-        snprintf(g_tpl, sizeof(g_tpl), "%s", BP_DEFAULT_TPL);
+        const char *tpl = strcmp(g_conf.style, "modal") == 0 ? BP_MODAL_TPL : BP_DEFAULT_TPL;
+        snprintf(g_tpl, sizeof(g_tpl), "%s", tpl);
         g_tpl_len = strlen(g_tpl);
     }
 
@@ -253,9 +319,30 @@ int blockpage_init(void) {
     return blockpage_reload();
 }
 
+/* 浏览器 UA 判定：广告只在真人可感知的浏览场景投放。
+ * 扫描器/命令行工具命中时不给广告，避免制造无效曝光（联盟判定为无效流量）。 */
+static int bp_is_browser(const char *ua) {
+    if (!ua || !ua[0]) return 0;
+    if (!strstr(ua, "Mozilla")) return 0;
+    static const char *bots[] = {
+        "bot", "spider", "crawler", "crawl", "scan", "curl", "wget",
+        "python", "java/", "go-http", "okhttp", "headless", "phantom",
+        "slurp", "ahrefs", "semrush", "nmap", "sqlmap", "nikto", NULL
+    };
+    char low[512];
+    size_t n = 0;
+    for (const char *p = ua; *p && n < sizeof(low) - 1; p++)
+        low[n++] = (char)tolower((unsigned char)*p);
+    low[n] = '\0';
+    for (int i = 0; bots[i]; i++)
+        if (strstr(low, bots[i])) return 0;
+    return 1;
+}
+
 /* 单遍展开模板占位符，避免逐个 strstr 替换带来的二次扫描与长度错乱 */
 size_t blockpage_render(char *out, size_t outsz,
-                        const char *ip, const char *rule, const char *url) {
+                        const char *ip, const char *rule, const char *url,
+                        const char *ua) {
     if (!out || outsz == 0) return 0;
 
     char esc_ip[256], esc_rule[512], esc_url[4096], tstr[64];
@@ -264,6 +351,16 @@ size_t blockpage_render(char *out, size_t outsz,
     bp_escape(url, esc_url, sizeof(esc_url));
     time_t now = time(NULL);
     strftime(tstr, sizeof(tstr), "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+    int show_ad = g_conf.ad_enabled && (!g_conf.ad_browser_only || bp_is_browser(ua));
+    const char *ad_html = show_ad ? g_ad : "";
+    size_t ad_html_len = show_ad ? g_ad_len : 0;
+
+    char esc_title[512], esc_site[512], esc_link[1400];
+    bp_escape(g_conf.modal_title, esc_title, sizeof(esc_title));
+    bp_escape(g_conf.modal_site, esc_site, sizeof(esc_site));
+    bp_escape(bp_url_ok(g_conf.modal_link) ? g_conf.modal_link : "https://bileiwaf.com",
+              esc_link, sizeof(esc_link));
 
     pthread_mutex_lock(&g_bp_lock);
     if (!g_ready || !g_conf.enabled || g_tpl_len == 0) {
@@ -284,7 +381,10 @@ size_t blockpage_render(char *out, size_t outsz,
                 else if (klen == 4 && !strncmp(g_tpl + i + 2, "rule", 4)) { rep = esc_rule; rep_len = strlen(esc_rule); }
                 else if (klen == 3 && !strncmp(g_tpl + i + 2, "url",  3)) { rep = esc_url;  rep_len = strlen(esc_url); }
                 else if (klen == 4 && !strncmp(g_tpl + i + 2, "time", 4)) { rep = tstr;     rep_len = strlen(tstr); }
-                else if (klen == 2 && !strncmp(g_tpl + i + 2, "ad",   2)) { rep = g_ad;     rep_len = g_ad_len; }
+                else if (klen == 2 && !strncmp(g_tpl + i + 2, "ad",   2)) { rep = ad_html;  rep_len = ad_html_len; }
+                else if (klen == 5 && !strncmp(g_tpl + i + 2, "title", 5)) { rep = esc_title; rep_len = strlen(esc_title); }
+                else if (klen == 4 && !strncmp(g_tpl + i + 2, "site", 4)) { rep = esc_site;  rep_len = strlen(esc_site); }
+                else if (klen == 4 && !strncmp(g_tpl + i + 2, "link", 4)) { rep = esc_link;  rep_len = strlen(esc_link); }
 
                 if (rep) {
                     if (o + rep_len >= outsz) { pthread_mutex_unlock(&g_bp_lock); return 0; }
