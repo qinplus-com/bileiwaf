@@ -389,7 +389,7 @@ static const char *waf_404_popup_html =
     "<a href=\"https://bileiwaf.com\" rel=\"noopener\" style=\"flex:1;min-width:140px;text-align:center;"
     "padding:9px 14px;border-radius:9px;border:1px solid #22d3ee;background:#0f2b45;color:#9fe8f6;"
     "font-size:13px;text-decoration:none\">访问 bileiwaf.com</a>"
-    "<button onclick=\"document.getElementById('waf404mask').remove()\" style=\"flex:1;min-width:140px;"
+    "<button onclick=\"if(document.referrer&&history.length>1){history.back()}else{document.getElementById('waf404mask').remove()}\" style=\"flex:1;min-width:140px;"
     "padding:9px 14px;border-radius:9px;border:1px solid #294260;background:transparent;color:#9fb3ca;"
     "font-size:13px;cursor:pointer;font-family:inherit\">继续浏览</button>"
     "</div></div></div>";
