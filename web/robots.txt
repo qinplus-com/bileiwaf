@@ -2,7 +2,8 @@ User-agent: *
 Allow: /
 Disallow: /showcase.html
 Disallow: /404.html
-Disallow: /demo-admin.html
-Disallow: /demo-login.html
+Disallow: /demo/admin.html
+Disallow: /demo/login.html
+Disallow: /demo/screen.html
 
 Sitemap: https://demo.bileiwaf.com/sitemap.xml

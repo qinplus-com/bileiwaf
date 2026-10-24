@@ -8,8 +8,8 @@
 <meta name="keywords" content="壁垒WAF,管理后台,WAF控制台,在线演示,监控大屏">
 <meta name="author" content="内蒙古勤加软件有限公司">
 <meta name="robots" content="noindex, follow">
-<link rel="canonical" href="https://demo.bileiwaf.com/demo-admin.html">
-<link rel="icon" href="/images/bileiwaf_logo.png" type="image/png">
+<link rel="canonical" href="https://demo.bileiwaf.com/demo/admin.html">
+<link rel="icon" href="/images/favicon.ico" type="image/x-icon">
 <style>
 :root{
   --bg:#070d1a; --bg2:#0b1220; --panel:#0f1c33; --panel2:#0c1526;
@@ -256,6 +256,8 @@ tbody tr:hover{background:rgba(53,224,200,.05)}
     <button class="burger" id="burger" aria-label="打开菜单">☰</button>
     <div class="title" id="curTitle">监控大屏</div>
     <span class="ro-pill">只读演示</span>
+    <a class="btn hide-xs" href="/demo/index.html">演示首页</a>
+    <a class="btn hide-xs" href="screen.html" target="_blank" rel="noopener">监控大屏 ↗</a>
     <a class="btn hide-xs" href="/docs/usage.html">使用手册</a>
     <a class="btn" href="/">返回官网</a>
   </div>
@@ -500,7 +502,7 @@ tbody tr:hover{background:rgba(53,224,200,.05)}
   window.addEventListener("resize",function(){ if(window.innerWidth>900) closeSidebar(); });
 
   /* ---------- 退出 ---------- */
-  $("btn_out").onclick=function(){ try{sessionStorage.removeItem("waf_demo_login")}catch(e){} location.href="/demo-login.html"; };
+  $("btn_out").onclick=function(){ try{sessionStorage.removeItem("waf_demo_login")}catch(e){} location.href="login.html"; };
 
   /* ---------- 趋势图 ---------- */
   (function(){
@@ -645,11 +647,11 @@ tbody tr:hover{background:rgba(53,224,200,.05)}
   /* ---------- 站点 ---------- */
   (function(){
     var sites=[
-      ["demo.local.conf","demo.bileiwaf.com","127.0.0.1:9000","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"],
-      ["dbask.cn.conf","dbask.cn, www.dbask.cn","10.0.2.15:8080","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"],
-      ["dbask.com.cn.conf","dbask.com.cn","10.0.2.16:8080","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"],
-      ["boxs.top.conf","boxs.top","10.0.3.21:3000","<span class='tag gray'>未启用</span>","<span class='tag green'>运行中</span>"],
-      ["wx.nm.cn.conf","wx.nm.cn","10.0.4.8:5000","<span class='tag green'>启用</span>","<span class='tag amber'>已停用</span>"]
+      ["shop.example.com.conf","shop.example.com, www.shop.example.com","10.0.2.15:8080","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"],
+      ["blog.example.com.conf","blog.example.com","10.0.2.16:8080","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"],
+      ["api.example.net.conf","api.example.net","10.0.3.21:3000","<span class='tag gray'>未启用</span>","<span class='tag green'>运行中</span>"],
+      ["static.example.org.conf","static.example.org","10.0.4.8:5000","<span class='tag green'>启用</span>","<span class='tag amber'>已停用</span>"],
+      ["mall.example.cn.conf","mall.example.cn","10.0.5.12:8080","<span class='tag green'>启用</span>","<span class='tag green'>运行中</span>"]
     ];
     $("st_rows").innerHTML=sites.map(function(s){
       return '<tr><td class="mono">'+s[0]+'</td><td>'+s[1]+'</td><td class="mono">'+s[2]+'</td><td>'+s[3]+'</td><td>'+s[4]+'</td></tr>';
@@ -659,11 +661,11 @@ tbody tr:hover{background:rgba(53,224,200,.05)}
   /* ---------- 证书 ---------- */
   (function(){
     var certs=[
-      ["demo.bileiwaf.com","Let's Encrypt R3","2027-01-18",86,"启用","有效"],
-      ["dbask.cn","Let's Encrypt R3","2026-12-02",39,"启用","有效"],
-      ["www.dbask.cn","Let's Encrypt R3","2026-12-02",39,"启用","有效"],
-      ["dbask.com.cn","DigiCert Global G2","2027-03-09",136,"启用","有效"],
-      ["wx.nm.cn","壁垒WAF 自签 CA","2026-11-14",21,"关闭","即将到期"]
+      ["shop.example.com","Let's Encrypt R3","2027-01-18",86,"启用","有效"],
+      ["www.shop.example.com","Let's Encrypt R3","2026-12-02",39,"启用","有效"],
+      ["blog.example.com","Let's Encrypt R3","2026-12-02",39,"启用","有效"],
+      ["api.example.net","DigiCert Global G2","2027-03-09",136,"启用","有效"],
+      ["mall.example.cn","壁垒WAF 自签 CA","2026-11-14",21,"关闭","即将到期"]
     ];
     $("ct_rows").innerHTML=certs.map(function(c){
       var st=c[5]==="有效"?"<span class='tag green'>有效</span>":"<span class='tag amber'>即将到期</span>";

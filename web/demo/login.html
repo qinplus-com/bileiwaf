@@ -8,8 +8,8 @@
 <meta name="keywords" content="壁垒WAF,管理后台,在线演示,WAF控制台">
 <meta name="author" content="内蒙古勤加软件有限公司">
 <meta name="robots" content="noindex, follow">
-<link rel="canonical" href="https://demo.bileiwaf.com/demo-login.html">
-<link rel="icon" href="/images/bileiwaf_logo.png" type="image/png">
+<link rel="canonical" href="https://demo.bileiwaf.com/demo/login.html">
+<link rel="icon" href="/images/favicon.ico" type="image/x-icon">
 <style>
 :root{
   --bg:#070d1a; --panel:rgba(15,24,44,.72); --line:#1c2f4d; --line2:#27436e;
@@ -110,7 +110,7 @@ button{cursor:pointer;border:none;border-radius:10px;font-size:14px;font-family:
 </head>
 <body>
 <div class="login-card">
-  <a class="back" href="/">← 返回官网</a>
+  <a class="back" href="/demo/index.html">← 返回演示首页</a>
   <div class="brand">
     <img src="/images/bileiwaf_logo.png" alt="壁垒WAF">
     <h1>壁垒WAF 管理后台</h1>
@@ -142,7 +142,7 @@ button{cursor:pointer;border:none;border-radius:10px;font-size:14px;font-family:
     $("li_err").textContent="";
     try{ sessionStorage.setItem("waf_demo_login","1"); }catch(e){}
     // 演示环境：不做权限校验，直接进入后台
-    location.href="/demo-admin.html";
+    location.href="admin.html";
   }
   $("li_btn").onclick=go;
   $("li_pass").onkeydown=function(e){ if(e.key==="Enter") go(); };

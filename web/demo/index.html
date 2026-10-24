@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>壁垒WAF 在线演示 - 监控大屏 / 管理后台 / 登录模拟</title>
+<meta name="description" content="壁垒WAF 在线演示入口：安全防护监控大屏、只读管理后台与登录模拟。全部为虚拟样例数据，不写入任何配置，可直接用于产品演示与迁移部署。">
+<meta name="keywords" content="壁垒WAF,在线演示,WAF监控大屏,WAF管理后台,WAF演示环境">
+<meta name="author" content="内蒙古勤加软件有限公司">
+<meta name="robots" content="noindex, follow">
+<meta name="language" content="zh-CN">
+<link rel="canonical" href="https://demo.bileiwaf.com/demo/">
+<link rel="icon" href="/images/favicon.ico" type="image/x-icon">
+<style>
+:root{
+  --bg:#0b1220; --panel:rgba(17,32,58,.62); --line:#1c2f4d; --ink:#d8e4f5; --muted:#7d8fa8;
+  --cyan:#35e0c8; --blue:#4da3ff; --red:#ff5d6c; --orange:#ffb454; --purple:#9d7bff;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg); color:var(--ink); line-height:1.7; overflow-x:hidden; min-height:100vh;
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
+  background-image:
+    radial-gradient(1200px 500px at 50% -10%, rgba(77,163,255,.10), transparent 60%),
+    radial-gradient(900px 420px at 100% 110%, rgba(53,224,200,.06), transparent 60%);
+  background-attachment:fixed;
+}
+a{text-decoration:none;color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px 60px;width:100%}
+
+/* 顶栏 */
+.nav{position:sticky;top:0;z-index:100;background:rgba(11,18,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;height:64px;max-width:1120px;margin:0 auto;padding:0 24px;width:100%}
+.logo{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;flex:none}
+.logo img{height:34px;width:auto;max-width:200px;object-fit:contain;display:block}
+.logo small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:2px}
+.nav-links{margin-left:auto;display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.nav-links a{padding:7px 13px;border-radius:8px;font-size:13.5px;color:var(--muted);transition:.2s;white-space:nowrap}
+.nav-links a:hover{color:var(--cyan);background:rgba(53,224,200,.08)}
+.nav-links a.on{color:var(--cyan)}
+.nav-toggle{display:none;margin-left:auto;width:42px;height:40px;flex-direction:column;justify-content:center;gap:5px;
+  padding:0 11px;background:rgba(53,224,200,.06);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.nav-toggle span{display:block;height:2px;border-radius:2px;background:var(--ink);transition:.25s}
+.nav-toggle[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-toggle[aria-expanded="true"] span:nth-child(2){opacity:0}
+.nav-toggle[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
+/* 头部 */
+header.hero{padding:64px 0 40px;text-align:center}
+.hero-tag{display:inline-flex;align-items:center;gap:8px;padding:5px 16px;border:1px solid rgba(255,180,84,.42);
+  border-radius:999px;color:var(--orange);font-size:13px;letter-spacing:2px;background:rgba(255,180,84,.09);margin-bottom:20px}
+.hero-tag i{width:7px;height:7px;border-radius:50%;background:var(--orange);box-shadow:0 0 8px var(--orange)}
+.hero h1{font-size:clamp(26px,4.4vw,40px);letter-spacing:2px;
+  background:linear-gradient(180deg,#fff,#9cc4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.sub{color:var(--muted);margin-top:14px;font-size:15px;max-width:680px;margin-left:auto;margin-right:auto}
+
+/* 入口卡片 */
+.entries{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px}
+.entry{position:relative;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);
+  border-radius:16px;padding:24px 22px 22px;overflow:hidden;transition:.24s}
+.entry::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c,var(--blue));opacity:.9}
+.entry::after{content:"";position:absolute;right:-46px;top:-46px;width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle,color-mix(in srgb,var(--c,var(--blue)) 20%,transparent),transparent 70%)}
+.entry:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--c,var(--blue)) 45%,var(--line));
+  box-shadow:0 16px 40px rgba(0,0,0,.32)}
+.entry .ico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:22px;color:var(--c,var(--blue));background:color-mix(in srgb,var(--c,var(--blue)) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--c,var(--blue)) 28%,transparent);margin-bottom:16px}
+.entry h2{font-size:19px;letter-spacing:.5px}
+.entry .desc{color:var(--muted);font-size:13.5px;margin-top:8px;min-height:44px}
+.entry ul{list-style:none;margin:14px 0 20px;display:flex;flex-direction:column;gap:6px}
+.entry li{font-size:12.5px;color:#a8bdd8;display:flex;gap:8px;align-items:flex-start}
+.entry li::before{content:"·";color:var(--c,var(--blue));font-weight:700}
+.entry .acts{margin-top:auto;display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-block;padding:9px 18px;border-radius:9px;font-size:13.5px;border:1px solid var(--line);
+  background:rgba(77,163,255,.06);color:#c3d4ea;transition:.2s}
+.btn:hover{border-color:var(--line);color:#fff;background:rgba(77,163,255,.14)}
+.btn.pri{background:linear-gradient(90deg,color-mix(in srgb,var(--c,var(--blue)) 82%,#fff 4%),var(--c,var(--blue)));
+  border-color:transparent;color:#06121f;font-weight:600}
+.btn.pri:hover{filter:brightness(1.08);color:#06121f}
+
+/* 说明 */
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:30px}
+.note{background:rgba(13,25,46,.55);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.note b{display:block;font-size:13.5px;color:var(--ink);margin-bottom:4px}
+.note b em{font-style:normal;color:var(--cyan);margin-right:8px}
+.note span{font-size:12.5px;color:var(--muted)}
+
+/* 演示账号 */
+.account{margin-top:18px;border:1px dashed rgba(53,224,200,.32);background:rgba(53,224,200,.05);
+  border-radius:12px;padding:14px 18px;font-size:13px;color:#b9cbe3;text-align:center}
+.account code{font-family:Consolas,monospace;color:var(--cyan);background:rgba(53,224,200,.10);
+  border:1px solid rgba(53,224,200,.24);border-radius:6px;padding:2px 8px;margin:0 3px}
+.account em{font-style:normal;color:var(--muted);margin-left:10px;font-size:12px}
+
+footer{margin-top:38px;padding-top:20px;border-top:1px solid var(--line);text-align:center;
+  font-size:11.5px;color:#63748f;letter-spacing:1px;line-height:1.9}
+footer b{color:var(--cyan);font-weight:600}
+
+@media(max-width:900px){
+  .entries{grid-template-columns:1fr;gap:14px}
+  .entry .desc{min-height:0}
+  .notes{grid-template-columns:1fr}
+  header.hero{padding:44px 0 26px}
+}
+@media(max-width:760px){
+  .nav-links{position:absolute;left:0;right:0;top:64px;flex-direction:column;align-items:stretch;
+    gap:2px;padding:8px 16px 14px;background:rgba(11,18,32,.98);border-bottom:1px solid var(--line);
+    max-height:0;overflow:hidden;transition:max-height .28s ease;margin-left:0}
+  .nav-links.open{max-height:78vh}
+  .nav-links a{padding:11px 12px}
+  .nav-toggle{display:flex}
+  header.hero{padding:34px 0 20px}
+  .hero p.sub{font-size:13.5px}
+  .wrap{padding:0 16px 40px}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-in">
+    <a class="logo" href="/"><img src="/images/bileiwaf_logo.png" alt="壁垒WAF"><small>DEMO</small></a>
+    <button class="nav-toggle" id="navToggle" aria-label="导航菜单" aria-expanded="false" aria-controls="navLinks">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="navLinks">
+      <a href="/">网站首页</a>
+      <a href="/screen.html">大屏演示</a>
+      <a href="/report.html">测试报告</a>
+      <a href="/docs/usage.html">使用手册</a>
+      <a href="/docs/install.html">安装手册</a>
+      <a href="/demo/index.html" class="on">后台演示</a>
+      <a href="/demo">攻防演示</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-tag"><i></i>只读演示环境 · 数据均为虚拟样例</div>
+    <h1>壁垒WAF 在线演示</h1>
+    <p class="sub">监控大屏、管理后台与登录模拟三合一入口。所有页面均为只读，操作不会写入或修改任何真实配置，可直接用于产品演示、录屏与迁移部署。</p>
+  </header>
+
+  <div class="entries">
+    <section class="entry" style="--c:#35e0c8">
+      <div class="ico">◉</div>
+      <h2>监控大屏</h2>
+      <div class="desc">实时攻击态势可视化大屏，适合投屏展示与录屏演示。</div>
+      <ul>
+        <li>今日攻击 / 本月拦截 / 实时 QPS</li>
+        <li>攻击类型、威胁等级与攻击源 TOP5</li>
+        <li>24 小时攻击趋势与全球攻击态势</li>
+      </ul>
+      <div class="acts"><a class="btn pri" href="screen.html">打开大屏</a></div>
+    </section>
+
+    <section class="entry" style="--c:#4da3ff">
+      <div class="ico">▣</div>
+      <h2>管理后台</h2>
+      <div class="desc">完整后台界面演示，覆盖日常运维的七类管理功能。</div>
+      <ul>
+        <li>攻击日志分页与多条件筛选</li>
+        <li>站点 / 证书 / 规则文件 / 端口配置</li>
+        <li>全局只读，写操作统一拦截提示</li>
+      </ul>
+      <div class="acts"><a class="btn pri" href="admin.html">进入后台</a><a class="btn" href="login.html">登录模拟</a></div>
+    </section>
+
+    <section class="entry" style="--c:#ffb454">
+      <div class="ico">⌘</div>
+      <h2>登录模拟</h2>
+      <div class="desc">还原真实登录页外观，演示账号已预填，不校验直接进入。</div>
+      <ul>
+        <li>演示账号 demo / 演示密码 Waf@2026</li>
+        <li>点击登录不做权限校验</li>
+        <li>退出后回到登录页</li>
+      </ul>
+      <div class="acts"><a class="btn pri" href="login.html">打开登录页</a></div>
+    </section>
+  </div>
+
+  <div class="account">
+    演示账号 <code>demo</code> 演示密码 <code>Waf@2026</code><em>仅用于界面演示，不对应任何真实账号</em>
+  </div>
+
+  <div class="notes">
+    <div class="note"><b><em>01</em>只读模式</b><span>全部管理按钮点击后仅提示「操作已禁用」，不产生任何写入。</span></div>
+    <div class="note"><b><em>02</em>虚拟数据</b><span>站点、证书、日志、规则条数均为示例数据，域名统一使用 example 系列。</span></div>
+    <div class="note"><b><em>03</em>独立目录</b><span>演示页集中在 /demo/ 下，可整目录迁移到演示服务器直接使用。</span></div>
+  </div>
+
+  <footer>
+    © 2026 <b>内蒙古勤加软件有限公司</b><br>
+    壁垒WAF BILEIWAF · 演示站点数据均为虚拟样例
+  </footer>
+</div>
+
+<script>
+"use strict";
+(function(){
+  var t=document.getElementById("navToggle"), l=document.getElementById("navLinks");
+  if(!t||!l) return;
+  t.onclick=function(){
+    var open=l.classList.toggle("open");
+    t.setAttribute("aria-expanded",open?"true":"false");
+  };
+  l.addEventListener("click",function(e){
+    if(e.target.tagName==="A"){ l.classList.remove("open"); t.setAttribute("aria-expanded","false"); }
+  });
+  window.addEventListener("resize",function(){
+    if(window.innerWidth>760){ l.classList.remove("open"); t.setAttribute("aria-expanded","false"); }
+  });
+})();
+</script>
+</body>
+</html>
