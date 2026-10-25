@@ -5,9 +5,9 @@
 **参赛单位：内蒙古勤加软件有限公司　|　版本：v1.0.5　|　2026 年 10 月**
 
 > 代码仓库：Gitee https://gitee.com/qinpluscom/bileiwaf ｜ GitHub https://github.com/qinplus-com/bileiwaf
-> 演示视频（4K）：GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/videos/bileiwaf_demo_4k.mp4 ｜ Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/videos/bileiwaf_demo_4k.mp4
-> 演示视频（2K）：GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/videos/bileiwaf_demo_2k.mp4 ｜ Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/videos/bileiwaf_demo_2k.mp4 ｜ 官网 https://bileiwaf.com/bileiwaf.mp4
-> 演示文稿：GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/ppt/壁垒WAF-参赛作品演示-20261022.pptx ｜ Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/ppt/壁垒WAF-参赛作品演示-20261022.pptx ｜ 官网 https://bileiwaf.com/bileiwaf.pptx ｜ PDF https://bileiwaf.com/bileiwaf.pdf
+> 演示视频：https://demo.bileiwaf.com/video/player.html（54 秒，含安装及后台演示）
+> 演示站点：https://demo.bileiwaf.com　|　壁垒WAF 官网：https://bileiwaf.com
+> 演示文稿：《壁垒WAF-参赛作品演示.pptx》（含全部页面截图） GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/ppt/壁垒WAF-参赛作品演示.pptx ｜ Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/ppt/壁垒WAF-参赛作品演示.pptx ｜ 官网 PPTX https://bileiwaf.com/bileiwaf.pptx ｜ PDF https://bileiwaf.com/bileiwaf.pdf
 
 ---
 
@@ -162,9 +162,9 @@ auto 相对 rules 漏报数由 13 降至 2（AI 补拦 11 个漏报样本），�
 | --- | --- |
 | 代码仓库 | Gitee https://gitee.com/qinpluscom/bileiwaf（主）｜ GitHub https://github.com/qinplus-com/bileiwaf（镜像） |
 | 作品介绍文档 | 本文档，PDF 版见仓库 `docs/ppt/壁垒WAF-作品介绍文档.pdf` |
-| 作品演示视频 | 《bileiwaf_demo_4k.mp4》（4K，55 秒，含登录、攻击拦截、管理能力、监控大屏全流程实拍）<br>GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/videos/bileiwaf_demo_4k.mp4<br>Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/videos/bileiwaf_demo_4k.mp4<br>2K 版（4.4MB，加载更快）：GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/videos/bileiwaf_demo_2k.mp4 ｜ Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/videos/bileiwaf_demo_2k.mp4<br>官网 https://bileiwaf.com/bileiwaf.mp4 |
-| 演示文稿 | 《壁垒WAF-参赛作品演示-20261022.pptx》（含全部页面截图）<br>GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/ppt/壁垒WAF-参赛作品演示-20261022.pptx<br>Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/ppt/壁垒WAF-参赛作品演示-20261022.pptx<br>官网 PPTX https://bileiwaf.com/bileiwaf.pptx ｜ 官网 PDF https://bileiwaf.com/bileiwaf.pdf<br>仓库 PDF 版 `docs/ppt/壁垒WAF-演示-20261022.pdf` |
-| 安装手册 / 使用手册 | 随作品提交，仓库 `docs/` 目录同步提供，PDF 见 `docs/ppt/` |
+| 作品演示视频 | 《壁垒WAF 演示视频》（54 秒，含安装及后台演示）<br>在线播放：https://demo.bileiwaf.com/video/player.html<br>4K 原片（仓库）：GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/videos/bileiwaf_demo_4k.mp4 ｜ Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/videos/bileiwaf_demo_4k.mp4<br>2K 版（4.4MB，加载更快）：GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/videos/bileiwaf_demo_2k.mp4 ｜ Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/videos/bileiwaf_demo_2k.mp4 |
+| 演示文稿 | 《壁垒WAF-参赛作品演示.pptx》（含全部页面截图）<br>GitHub https://github.com/qinplus-com/bileiwaf/blob/main/docs/ppt/壁垒WAF-参赛作品演示.pptx<br>Gitee https://gitee.com/qinpluscom/bileiwaf/blob/main/docs/ppt/壁垒WAF-参赛作品演示.pptx<br>官网 PPTX https://bileiwaf.com/bileiwaf.pptx ｜ 官网 PDF https://bileiwaf.com/bileiwaf.pdf<br>仓库 PDF 版 `docs/ppt/壁垒WAF-演示.pdf` |
+| 安装手册 / 使用手册 | 随作品提交，仓库 `docs/` 目录同步提供 |
 
 ---
 
