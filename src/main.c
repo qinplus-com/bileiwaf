@@ -797,6 +797,12 @@ static void chk_site_file(const char *path, char seen[][256], int *seen_n, int m
     /* 重复域名 */
     for (int i = 0; i < ndom; i++) {
         if (!domains[i][0]) continue;
+        /* 同一文件内重复（历史上 domain 与 domains 写同一主机名）不算冲突，
+         * 只有跨站点重复才报错 */
+        int dup_in_file = 0;
+        for (int k = 0; k < i; k++)
+            if (!strcasecmp(domains[k], domains[i])) { dup_in_file = 1; break; }
+        if (dup_in_file) continue;
         for (int j = 0; j < *seen_n; j++)
             if (!strcasecmp(seen[j], domains[i]))
                 chk_msg(1, path, site_lines[i], "域名重复: %s（与其它站点冲突）", domains[i]);

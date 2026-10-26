@@ -1985,7 +1985,6 @@ static void handle_admin_sites_post(int fd, const char *post) {
         "\n"
         "[site]\n"
         "domain = %s\n"
-        "domains = %s\n"
         "document_root = %s\n"
         "backend_host = %s\n"
         "backend_port = %s\n"
@@ -2026,7 +2025,7 @@ static void handle_admin_sites_post(int fd, const char *post) {
         "csrf_protection = 1\n"
         "xss_protection = 1\n"
         "clickjacking_protection = 1\n",
-        domain, domain, domain, docroot, bhost, bport,
+        domain, docroot, bhost, bport,
         cert_ok ? 1 : 0, cert_ok ? cpath : "", cert_ok ? kpath : "",
         domain, domain);
     fclose(f);
