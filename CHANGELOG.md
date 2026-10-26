@@ -18,6 +18,13 @@
   其它 `.rules` → 青色「检测规则」。
 - 管理后台 / 监控大屏「累计拦截、攻击总数、请求总数」改为**仅显示本月数据**
   （按自然月 `YYYY-MM` 过滤日志）；今日、24h 趋势、TOP 榜口径不变。
+- `cert issue` 申请 Let's Encrypt 证书时报「80 端口已被占用」：原实现只按 pid
+  文件判断 WAF 是否在跑，而 pid 文件在 wrapper / systemd / 手工启动三种场景下
+  路径不一致，导致 WAF 未被真正停止、certbot standalone 绑定 80 失败。现在优先
+  走 webroot 模式（数据平面本机响应 `/.well-known/acme-challenge/`，无需停机），
+  并在调用 certbot 前做本地探针自检；WEBROOT 不可用时回退 standalone，按
+  `/proc` 定位真正占用 80 端口的进程（非 WAF 时给出占用者提示），停掉后签发完成
+  自动拉起数据平面。
 
 ## [1.0.4] - 2026-10-22
 

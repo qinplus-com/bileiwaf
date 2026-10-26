@@ -141,6 +141,159 @@ int stop_waf(void) {
     return 0;
 }
 
+/* 返回监听指定 TCP 端口的进程 PID（0 = 端口空闲）。
+ * 直接解析 /proc 而不读 pid 文件：pid 文件路径在 wrapper / systemd / 手工启动
+ * 三种场景下不一致，且可能被清理或残留，只看 pid 文件会漏掉真正占用端口的进程
+ * （曾导致 cert issue 误判"WAF 已停止"，certbot 报 80 端口被占用）。 */
+static pid_t port_listener_pid(int port) {
+    unsigned long inodes[32];
+    int ninode = 0;
+    static const char *tables[] = {"/proc/net/tcp", "/proc/net/tcp6"};
+
+    for (int t = 0; t < 2 && ninode < 32; t++) {
+        FILE *fp = fopen(tables[t], "r");
+        if (!fp) continue;
+        char line[512];
+        while (fgets(line, sizeof(line), fp) && ninode < 32) {
+            char *tok[12];
+            char *save = NULL;
+            int n = 0;
+            for (char *p = strtok_r(line, " \t\n", &save); p && n < 12;
+                 p = strtok_r(NULL, " \t\n", &save))
+                tok[n++] = p;
+            if (n < 10 || strcmp(tok[0], "sl") == 0) continue; /* 表头 */
+            if (strcmp(tok[3], "0A") != 0) continue;           /* 0A = LISTEN */
+            char *colon = strrchr(tok[1], ':');
+            if (!colon) continue;
+            if ((int)strtol(colon + 1, NULL, 16) != port) continue;
+            inodes[ninode++] = strtoul(tok[9], NULL, 10);      /* 第 10 列 = inode */
+        }
+        fclose(fp);
+    }
+    if (ninode == 0) return 0;
+
+    DIR *pdir = opendir("/proc");
+    if (!pdir) return 0;
+
+    pid_t found = 0;
+    struct dirent *de;
+    while (found == 0 && (de = readdir(pdir)) != NULL) {
+        if (de->d_name[0] < '0' || de->d_name[0] > '9') continue;
+        char fdpath[288];
+        snprintf(fdpath, sizeof(fdpath), "/proc/%s/fd", de->d_name);
+        DIR *fddir = opendir(fdpath);
+        if (!fddir) continue;
+        struct dirent *fe;
+        while (found == 0 && (fe = readdir(fddir)) != NULL) {
+            char link[560], target[128];
+            snprintf(link, sizeof(link), "%s/%s", fdpath, fe->d_name);
+            ssize_t r = readlink(link, target, sizeof(target) - 1);
+            if (r <= 0) continue;
+            target[r] = '\0';
+            unsigned long ino = 0;
+            if (sscanf(target, "socket:[%lu]", &ino) != 1) continue;
+            for (int i = 0; i < ninode; i++) {
+                if (inodes[i] == ino) { found = (pid_t)atoi(de->d_name); break; }
+            }
+        }
+        closedir(fddir);
+    }
+    closedir(pdir);
+    return found;
+}
+
+/* 读进程命令行（用于提示端口被谁占用） */
+static void proc_cmdline(pid_t pid, char *out, size_t outsz) {
+    out[0] = '\0';
+    char path[64];
+    snprintf(path, sizeof(path), "/proc/%d/cmdline", (int)pid);
+    FILE *fp = fopen(path, "rb");
+    if (!fp) return;
+    size_t n = fread(out, 1, outsz - 1, fp);
+    fclose(fp);
+    out[n] = '\0';
+    for (size_t i = 0; i < n; i++) {
+        if (out[i] == '\0') out[i] = ' ';
+    }
+}
+
+/* 轮询等待端口释放（最多 timeout_sec 秒） */
+static int wait_port_free(int port, int timeout_sec) {
+    for (int i = 0; i < timeout_sec * 10; i++) {
+        if (port_listener_pid(port) == 0) return 1;
+        usleep(100000);
+    }
+    return 0;
+}
+
+/* 服务根目录：$WAF_HOME > 当前目录 > <根>/bin 的父目录 > 编译期前缀。
+ * 直接运行 bin/bileiwaf（未经过 wrapper、未带 WAF_HOME）时也能定位
+ * web/acme 与 config，否则 cert issue 会找不到正确的 webroot */
+static const char *waf_home_dir(void) {
+    static char buf[512];
+    const char *h = getenv("WAF_HOME");
+    if (h && h[0]) return h;
+
+    char cwd[512], probe[600];
+    if (!getcwd(cwd, sizeof(cwd))) {
+        snprintf(buf, sizeof(buf), "%s", WAF_PREFIX);
+        return buf;
+    }
+
+    snprintf(probe, sizeof(probe), "%s/config/sites.conf", cwd);
+    if (access(probe, R_OK) == 0) {
+        snprintf(buf, sizeof(buf), "%s", cwd);
+        return buf;
+    }
+
+    size_t n = strlen(cwd);
+    if (n > 4 && strcmp(cwd + n - 4, "/bin") == 0) {
+        snprintf(buf, sizeof(buf), "%.*s", (int)(n - 4), cwd);
+        snprintf(probe, sizeof(probe), "%s/config/sites.conf", buf);
+        if (access(probe, R_OK) == 0) return buf;
+        snprintf(probe, sizeof(probe), "%s/web/acme", buf);
+        if (access(probe, F_OK) == 0) return buf;
+    }
+
+    snprintf(probe, sizeof(probe), "%s/config/sites.conf", WAF_PREFIX);
+    if (access(probe, R_OK) == 0) {
+        snprintf(buf, sizeof(buf), "%s", WAF_PREFIX);
+        return buf;
+    }
+
+    snprintf(buf, sizeof(buf), "%s", cwd);
+    return buf;
+}
+
+/* 本地探测 ACME webroot 是否可用：写探针文件后经数据平面自检回读。
+ * 先自检再决定是否让 certbot 走 webroot，避免数据平面未响应 challenge 时
+ * 白白消耗 Let's Encrypt 的失败验证次数（每域名每小时限 5 次） */
+static int acme_webroot_ready(const char *home, const char *domain) {
+    char dir[512], path[600], token[64];
+    snprintf(dir, sizeof(dir), "%s/web/acme/.well-known/acme-challenge", home);
+    snprintf(token, sizeof(token), "wafprobe%ld", (long)getpid());
+    snprintf(path, sizeof(path), "%s/%s", dir, token);
+
+    FILE *fp = fopen(path, "w");
+    if (!fp) return 0;
+    fprintf(fp, "%s", token);
+    fclose(fp);
+
+    char cmd[1200], line[512];
+    snprintf(cmd, sizeof(cmd),
+             "curl -s --max-time 5 -H 'Host: %s' "
+             "'http://127.0.0.1/.well-known/acme-challenge/%s' 2>/dev/null",
+             domain, token);
+    int ready = 0;
+    FILE *p = popen(cmd, "r");
+    if (p) {
+        if (fgets(line, sizeof(line), p) && strstr(line, token)) ready = 1;
+        pclose(p);
+    }
+    unlink(path);
+    return ready;
+}
+
 int is_process_running(pid_t pid) {
     if (pid <= 0) return 0;
     
@@ -1620,7 +1773,7 @@ int cert_issue(const char *domain) {
     printf("  - Auto-renewal recommended before expiry\n");
     printf("\n");
     printf("Requirements:\n");
-    printf("  1. Port 80 must be available (WAF will be stopped temporarily)\n");
+    printf("  1. Port 80 must reach this server (webroot mode first, no downtime)\n");
     printf("  2. Domain %s must resolve to this server's IP\n", domain);
     printf("  3. certbot must be installed\n");
     printf("\n");
@@ -1641,31 +1794,85 @@ int cert_issue(const char *domain) {
         return 1;
     }
     
-    printf("Stopping WAF to free port 80...\n");
-    if (read_pid_file((pid_t[]){0}) == 0) {
-        stop_waf();
+    /* ACME HTTP-01 挑战由数据平面本机直接响应（web/acme），
+     * 因此优先走 webroot 模式：不需要停 WAF，也不需要独占 80 端口 */
+    const char *home = waf_home_dir();
+
+    char acme[512], mkd[600];
+    snprintf(acme, sizeof(acme), "%s/web/acme", home);
+    snprintf(mkd, sizeof(mkd), "mkdir -p '%s/.well-known/acme-challenge'", acme);
+    if (system(mkd) != 0) {
+        fprintf(stderr, "Warning: cannot create ACME webroot %s\n", acme);
     }
-    
-    char cmd[1024];
+
+    char cmd[2048];
     char www_domain[256];
     snprintf(www_domain, sizeof(www_domain), "www.%s", domain);
-    snprintf(cmd, sizeof(cmd), 
-             "certbot certonly --standalone "
+    snprintf(cmd, sizeof(cmd),
+             "certbot certonly --webroot -w '%s' "
              "-d %s -d %s "
              "--non-interactive "
              "--agree-tos "
-             "--email admin@%s", 
-             domain, www_domain, domain);
-    
-    printf("Running certbot...\n");
-    int result = system(cmd);
-    
+             "--email admin@%s",
+             acme, domain, www_domain, domain);
+
+    /* 先本地自检 webroot：数据平面能响应 challenge 才走 webroot（无需停机） */
+    int result = -1;
+    if (acme_webroot_ready(home, domain)) {
+        printf("Running certbot (webroot: %s)...\n", acme);
+        result = system(cmd);
+    } else {
+        printf("ACME webroot self-check failed, using standalone mode...\n");
+    }
+
+    /* webroot 失败或不可用时回退 standalone。
+     * standalone 必须真正释放 80 端口，按 /proc 定位占用进程，而不是读 pid 文件 */
+    int stopped_pid = 0;
+    if (result != 0) {
+        printf("\nWebroot validation failed, falling back to standalone mode...\n");
+        pid_t holder = port_listener_pid(80);
+        if (holder > 0) {
+            char cmdl[256];
+            proc_cmdline(holder, cmdl, sizeof(cmdl));
+            if (strstr(cmdl, "bileiwaf")) {
+                printf("Port 80 is held by WAF (PID %d), stopping it temporarily...\n", (int)holder);
+                kill(holder, SIGTERM);
+                if (!wait_port_free(80, 5)) {
+                    kill(holder, SIGKILL);
+                    wait_port_free(80, 3);
+                }
+                stopped_pid = (int)holder;
+            } else {
+                fprintf(stderr, "Port 80 is held by another process (PID %d): %.150s\n",
+                        (int)holder, cmdl);
+                fprintf(stderr, "Stop that process manually, or add this domain as a WAF site "
+                                "so webroot validation can be used.\n");
+            }
+        }
+
+        if (port_listener_pid(80) == 0) {
+            snprintf(cmd, sizeof(cmd),
+                     "certbot certonly --standalone "
+                     "-d %s -d %s "
+                     "--non-interactive "
+                     "--agree-tos "
+                     "--email admin@%s",
+                     domain, www_domain, domain);
+            printf("Running certbot (standalone)...\n");
+            result = system(cmd);
+        } else {
+            fprintf(stderr, "Port 80 is still in use, standalone mode skipped\n");
+            result = -1;
+        }
+    }
+
+    int ok = 0;
     if (result == 0) {
         char cert_file[512];
         char key_file[512];
         snprintf(cert_file, sizeof(cert_file), "%s/%s/fullchain.pem", CERT_DIR, domain);
         snprintf(key_file, sizeof(key_file), "%s/%s/privkey.pem", CERT_DIR, domain);
-        
+
         struct stat st;
         if (stat(cert_file, &st) == 0 && stat(key_file, &st) == 0) {
             printf("\n");
@@ -1673,16 +1880,41 @@ int cert_issue(const char *domain) {
             printf("   Certificate expires in 90 days\n");
             printf("\n");
             cert_deploy_live();
-            cert_set(domain, cert_file, key_file);
-            return 0;
+            ok = 1;
+            /* 站点尚未在 sites.conf 中登记时 cert_set 会报 Site not found，
+             * 证书本身已签发成功，这里只提示不判失败 */
+            if (cert_set(domain, cert_file, key_file) != 0) {
+                fprintf(stderr, "Certificate issued, but site config was not updated "
+                                "(site %s not found); add the site first\n", domain);
+            }
         } else {
             fprintf(stderr, "Certificate files not found after issuing\n");
-            return 1;
         }
     } else {
         fprintf(stderr, "Failed to issue Let's Encrypt certificate\n");
-        return 1;
     }
+
+    /* standalone 期间停掉了数据平面，无论签发成功与否都要恢复，避免业务中断 */
+    if (stopped_pid > 0) {
+        printf("Restarting WAF...\n");
+        if (system("systemctl is-enabled bileiwaf >/dev/null 2>&1") == 0) {
+            system("systemctl start bileiwaf");
+        } else {
+            char sc[700];
+            snprintf(sc, sizeof(sc), "cd '%s' && ./waf start waf >/dev/null 2>&1", home);
+            system(sc);
+        }
+        int back = 0;
+        for (int i = 0; i < 30; i++) { /* 最多等 3 秒确认 80 端口重新被监听 */
+            if (port_listener_pid(80) > 0) { back = 1; break; }
+            usleep(100000);
+        }
+        if (!back) {
+            fprintf(stderr, "Warning: WAF did not come back on port 80, please start it manually\n");
+        }
+    }
+
+    return ok ? 0 : 1;
 }
 
 /* 把 /etc/letsencrypt/live/<域名>/ 下已续期的证书同步到 WAF 证书目录
@@ -1746,12 +1978,22 @@ int cert_renew(void) {
         return 1;
     }
 
-    int waf_running = read_pid_file((pid_t[]){0}) == 0;
-
-    if (waf_running) {
-        printf("Stopping WAF to free port 80...\n");
-        stop_waf();
-        sleep(2);
+    /* 与 cert_issue 一致：按 /proc 判断 80 端口是否被 WAF 占用，
+     * pid 文件在手工启动/systemd 场景下可能不存在，会导致漏停 */
+    int waf_running = 0;
+    pid_t holder = port_listener_pid(80);
+    if (holder > 0) {
+        char cmdl[256];
+        proc_cmdline(holder, cmdl, sizeof(cmdl));
+        if (strstr(cmdl, "bileiwaf")) {
+            waf_running = 1;
+            printf("Stopping WAF to free port 80...\n");
+            kill(holder, SIGTERM);
+            if (!wait_port_free(80, 5)) {
+                kill(holder, SIGKILL);
+                wait_port_free(80, 3);
+            }
+        }
     }
 
     int result = system("certbot renew --quiet");
