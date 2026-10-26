@@ -25,6 +25,13 @@
   并在调用 certbot 前做本地探针自检；WEBROOT 不可用时回退 standalone，按
   `/proc` 定位真正占用 80 端口的进程（非 WAF 时给出占用者提示），停掉后签发完成
   自动拉起数据平面。
+- 二级域名签发证书失败：`cert issue` 原先无条件追加 `-d www.<域名>`，而二级域名
+  往往没有 www 解析，导致整个 HTTP-01 校验失败。现在先探测 www 是否有 DNS 记录，
+  仅在可解析时纳入 SAN，并用 `--cert-name <域名>` 固定证书名。
+- 自动续期报 `No certificate found with name ...`：站点证书目录名被直接当作
+  certbot cert-name（历史上按 www 开头签发的证书会不一致）。现在依次按
+  `renewal/<名>.conf`、`live/<名>/fullchain.pem`、renewal 配置的 domains 精确反查
+  真实证书名；确无 renewal 配置时按「跳过」处理，不再每日刷失败日志。
 
 ## [1.0.4] - 2026-10-22
 

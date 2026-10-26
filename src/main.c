@@ -226,6 +226,14 @@ static int wait_port_free(int port, int timeout_sec) {
     return 0;
 }
 
+/* 域名是否有 DNS 记录。二级域名的 www 子域常常未解析，
+ * 强行加入 SAN 会让整个签发校验失败 */
+static int host_resolves(const char *host) {
+    char cmd[400];
+    snprintf(cmd, sizeof(cmd), "getent hosts '%s' >/dev/null 2>&1", host);
+    return system(cmd) == 0;
+}
+
 /* 服务根目录：$WAF_HOME > 当前目录 > <根>/bin 的父目录 > 编译期前缀。
  * 直接运行 bin/bileiwaf（未经过 wrapper、未带 WAF_HOME）时也能定位
  * web/acme 与 config，否则 cert issue 会找不到正确的 webroot */
@@ -1806,15 +1814,23 @@ int cert_issue(const char *domain) {
     }
 
     char cmd[2048];
-    char www_domain[256];
+    char www_domain[256], doms[600];
     snprintf(www_domain, sizeof(www_domain), "www.%s", domain);
+    /* 只有 www 子域真实解析时才纳入 SAN；二级域名常无 www 记录 */
+    if (host_resolves(www_domain)) {
+        snprintf(doms, sizeof(doms), "-d %s -d %s", domain, www_domain);
+    } else {
+        printf("Note: %s has no DNS record, issuing for %s only\n", www_domain, domain);
+        snprintf(doms, sizeof(doms), "-d %s", domain);
+    }
+    /* --cert-name 固定为站点域名：证书目录与 renewal 配置名一致，
+     * 避免以 www 开头命名导致后续 renew --cert-name 找不到证书 */
     snprintf(cmd, sizeof(cmd),
-             "certbot certonly --webroot -w '%s' "
-             "-d %s -d %s "
+             "certbot certonly --webroot -w '%s' %s --cert-name '%s' "
              "--non-interactive "
              "--agree-tos "
              "--email admin@%s",
-             acme, domain, www_domain, domain);
+             acme, doms, domain, domain);
 
     /* 先本地自检 webroot：数据平面能响应 challenge 才走 webroot（无需停机） */
     int result = -1;
@@ -1852,12 +1868,11 @@ int cert_issue(const char *domain) {
 
         if (port_listener_pid(80) == 0) {
             snprintf(cmd, sizeof(cmd),
-                     "certbot certonly --standalone "
-                     "-d %s -d %s "
+                     "certbot certonly --standalone %s --cert-name '%s' "
                      "--non-interactive "
                      "--agree-tos "
                      "--email admin@%s",
-                     domain, www_domain, domain);
+                     doms, domain, domain);
             printf("Running certbot (standalone)...\n");
             result = system(cmd);
         } else {

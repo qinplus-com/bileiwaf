@@ -2546,6 +2546,64 @@ static void last_nonempty_line(const char *s, char *out, size_t outsz) {
     out[i] = '\0';
 }
 
+/* renewal 配置的 domains 行里是否精确包含该域名 */
+static int domains_list_has(const char *list, const char *domain) {
+    char buf[1024];
+    snprintf(buf, sizeof(buf), "%s", list);
+    char *save = NULL;
+    for (char *t = strtok_r(buf, ",\n\r", &save); t; t = strtok_r(NULL, ",\n\r", &save)) {
+        while (*t == ' ' || *t == '\t') t++;
+        size_t n = strlen(t);
+        while (n && (t[n - 1] == ' ' || t[n - 1] == '\t')) t[--n] = '\0';
+        if (strcmp(t, domain) == 0) return 1;
+    }
+    return 0;
+}
+
+/* 解析 certbot 实际使用的证书名。站点证书目录名不一定等于 certbot 的
+ * cert-name（历史上按 www 开头签发过），直接用目录名 renew 会报
+ * "No certificate found with name ..." */
+static int resolve_certbot_name(const char *domain, const char *hint,
+                                char *out, size_t outsz) {
+    out[0] = '\0';
+    char path[700];
+    if (hint[0] && safe_fs_path(hint)) {
+        snprintf(path, sizeof(path), "/etc/letsencrypt/renewal/%s.conf", hint);
+        if (access(path, R_OK) == 0) { snprintf(out, outsz, "%s", hint); return 0; }
+        snprintf(path, sizeof(path), "/etc/letsencrypt/live/%s/fullchain.pem", hint);
+        if (access(path, R_OK) == 0) { snprintf(out, outsz, "%s", hint); return 0; }
+    }
+
+    /* 按 renewal 配置的 domains 反查（兼容以 www 命名签发的证书） */
+    DIR *d = opendir("/etc/letsencrypt/renewal");
+    if (!d) return -1;
+    struct dirent *e;
+    int found = -1;
+    while ((e = readdir(d)) != NULL) {
+        size_t nl = strlen(e->d_name);
+        if (nl < 6 || strcmp(e->d_name + nl - 5, ".conf") != 0) continue;
+        char rp[700];
+        snprintf(rp, sizeof(rp), "/etc/letsencrypt/renewal/%s", e->d_name);
+        FILE *f = fopen(rp, "r");
+        if (!f) continue;
+        char ln[1024];
+        int hit = 0;
+        while (fgets(ln, sizeof(ln), f)) {
+            if (strncmp(ln, "domains", 7) != 0) continue;
+            char *eq = strchr(ln, '=');
+            if (eq && domains_list_has(eq + 1, domain)) { hit = 1; break; }
+        }
+        fclose(f);
+        if (hit) {
+            snprintf(out, outsz, "%.*s", (int)(nl - 5), e->d_name);
+            found = 0;
+            break;
+        }
+    }
+    closedir(d);
+    return found;
+}
+
 /* 续期单张站点证书。force=1：LE 强制续期（手动）；自签始终重签。
  * 返回 0=已续期 1=跳过（未到期） -1=失败；msg 写结果描述 */
 static int renew_one_cert(const char *domain, const char *docroot,
@@ -2557,8 +2615,14 @@ static int renew_one_cert(const char *domain, const char *docroot,
     if (access(cert, R_OK) != 0) { snprintf(msg, msgsz, "证书文件缺失"); return -1; }
 
     if (ssl_cert_is_le(cert)) {
-        char name[256]; cert_le_name(cert, name, sizeof(name));
-        if (!name[0] || !safe_fs_path(name)) { snprintf(msg, msgsz, "无法解析证书名"); return -1; }
+        char hint[256], name[256];
+        cert_le_name(cert, hint, sizeof(hint));
+        if (!hint[0] || !safe_fs_path(hint)) { snprintf(msg, msgsz, "无法解析证书名"); return -1; }
+        /* certbot 未管理该证书时按跳过处理，避免每天刷失败日志 */
+        if (resolve_certbot_name(domain, hint, name, sizeof(name)) != 0) {
+            snprintf(msg, msgsz, "certbot 未管理该证书（无 renewal 配置），跳过自动续期");
+            return 1;
+        }
         if (!certbot_available()) {
             snprintf(msg, msgsz, "certbot 未安装，无法续期 Let's Encrypt 证书（yum install certbot）");
             return -1;
