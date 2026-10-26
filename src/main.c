@@ -1490,9 +1490,15 @@ int cert_status(void) {
     config.auto_add_www = 0;
     waf_sites_init(&config);
     
+    /* 配置路径按实际服务根解析，自定义安装前缀（如 /opt/bileiwaf）也能正确读写 */
+    const char *home = waf_home_dir();
+    char sites_json[600], sites_conf[600];
+    snprintf(sites_json, sizeof(sites_json), "%s/config/sites.json", home);
+    snprintf(sites_conf, sizeof(sites_conf), "%s/config/sites.conf", home);
+
     const char *site_config_paths[] = {
-        WAF_CONFIG_DIR "/sites.json",
-        WAF_CONFIG_DIR "/sites.conf",
+        sites_json,
+        sites_conf,
         NULL
     };
     
@@ -1618,9 +1624,15 @@ int cert_set(const char *domain, const char *cert_path, const char *key_path) {
     config.auto_add_www = 1;
     waf_sites_init(&config);
     
+    /* 配置路径按实际服务根解析，自定义安装前缀（如 /opt/bileiwaf）也能正确读写 */
+    const char *home = waf_home_dir();
+    char sites_json[600], sites_conf[600];
+    snprintf(sites_json, sizeof(sites_json), "%s/config/sites.json", home);
+    snprintf(sites_conf, sizeof(sites_conf), "%s/config/sites.conf", home);
+
     const char *site_config_paths[] = {
-        WAF_CONFIG_DIR "/sites.json",
-        WAF_CONFIG_DIR "/sites.conf",
+        sites_json,
+        sites_conf,
         NULL
     };
     
@@ -2102,9 +2114,15 @@ int cert_auto(void) {
     config.auto_add_www = 1;
     waf_sites_init(&config);
     
+    /* 配置路径按实际服务根解析，自定义安装前缀（如 /opt/bileiwaf）也能正确读写 */
+    const char *home = waf_home_dir();
+    char sites_json[600], sites_conf[600];
+    snprintf(sites_json, sizeof(sites_json), "%s/config/sites.json", home);
+    snprintf(sites_conf, sizeof(sites_conf), "%s/config/sites.conf", home);
+
     const char *site_config_paths[] = {
-        WAF_CONFIG_DIR "/sites.json",
-        WAF_CONFIG_DIR "/sites.conf",
+        sites_json,
+        sites_conf,
         NULL
     };
     
@@ -2216,9 +2234,15 @@ int cert_test(const char *domain) {
     memset(&config, 0, sizeof(config));
     waf_sites_init(&config);
     
+    /* 配置路径按实际服务根解析，自定义安装前缀（如 /opt/bileiwaf）也能正确读写 */
+    const char *home = waf_home_dir();
+    char sites_json[600], sites_conf[600];
+    snprintf(sites_json, sizeof(sites_json), "%s/config/sites.json", home);
+    snprintf(sites_conf, sizeof(sites_conf), "%s/config/sites.conf", home);
+
     const char *site_config_paths[] = {
-        WAF_CONFIG_DIR "/sites.json",
-        WAF_CONFIG_DIR "/sites.conf",
+        sites_json,
+        sites_conf,
         NULL
     };
     
